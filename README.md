@@ -1,7 +1,7 @@
 <div align="center">
   <img src="https://pan.samyyc.dev/s/VYmMXE" />
   <h2><strong>SLAYER_Duel</strong></h2>
-  <h3>SLAYER_Duel</h3>
+  <h3>1vs1 Duel at the end of the round with different weapons</h3>
 </div>
 
 <p align="center">
