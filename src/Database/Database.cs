@@ -27,7 +27,10 @@ public partial class SLAYER_Duel : BasePlugin
         {
             try
             {
-                var result = await _connection.QueryFirstOrDefaultAsync(@"SELECT `option`, `wins`, `losses` FROM `SLAYER_Duel` WHERE `steamid` = @SteamId;",
+                using var connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
+                connection.Open();
+
+                var result = await connection.QueryFirstOrDefaultAsync(@"SELECT `option`, `wins`, `losses` FROM `SLAYER_Duel` WHERE `steamid` = @SteamId;",
                 new
                 {
                     SteamId = steamId
@@ -41,8 +44,8 @@ public partial class SLAYER_Duel : BasePlugin
                 });
 
                 // Update player name in database when they connect
-                await _connection.ExecuteAsync(@"INSERT INTO `SLAYER_Duel` (`steamid`, `name`, `option`, `wins`, `losses`) VALUES (@SteamId, @Name, -1, 0, 0)
-                    ON CONFLICT(`steamid`) DO UPDATE SET `name` = @Name;",
+                await connection.ExecuteAsync(@"INSERT INTO `SLAYER_Duel` (`steamid`, `name`, `option`, `wins`, `losses`) VALUES (@SteamId, @Name, -1, 0, 0)
+                    ON DUPLICATE KEY UPDATE `name` = @Name;",
                     new
                     {
                         SteamId = steamId,
@@ -74,15 +77,19 @@ public partial class SLAYER_Duel : BasePlugin
         {
             try
             {
-                await _connection.ExecuteAsync(@"
+                using var connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
+                connection.Open();
+
+                await connection.ExecuteAsync(@"
                     INSERT INTO `SLAYER_Duel` (`steamid`, `name`, `option`, `wins`, `losses`) VALUES (@SteamId, @Name, @Option, 0, 0)
-                    ON CONFLICT(`steamid`) DO UPDATE SET `name` = @Name, `option` = @Option;",
+                    ON DUPLICATE KEY UPDATE `name` = @Name, `option` = @Option;",
                     new
                     {
                         SteamId = steamId,
                         Name = PlayerOption![player].PlayerName,
                         Option = choice
                     });
+                connection.Close();
             }
             catch (Exception ex)
             {
@@ -110,18 +117,26 @@ public partial class SLAYER_Duel : BasePlugin
             PlayerName = player.Controller.PlayerName;
         }
 
+        // Connection
+        using var connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
+        connection.Open();
+
         Task.Run(async () =>
         {
             try
             {
-                await _connection.ExecuteAsync(@"
+                using var connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
+                connection.Open();
+
+                await connection.ExecuteAsync(@"
                     INSERT INTO `SLAYER_Duel` (`steamid`, `name`, `option`, `wins`, `losses`) VALUES (@SteamId, @Name, -1, 1, 0)
-                    ON CONFLICT(`steamid`) DO UPDATE SET `name` = @Name, `wins` = `wins` + 1;",
+                    ON DUPLICATE KEY UPDATE `name` = @Name, `wins` = `wins` + 1;",
                     new
                     {
                         SteamId = steamId,
                         Name = PlayerName
                     });
+                connection.Close();
             }
             catch (Exception ex)
             {
@@ -149,18 +164,26 @@ public partial class SLAYER_Duel : BasePlugin
             PlayerName = player.Controller.PlayerName;
         }
 
+        // Connection
+        using var connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
+        connection.Open();
+        
         Task.Run(async () =>
         {
             try
             {
-                await _connection.ExecuteAsync(@"
+                using var connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
+                connection.Open();
+
+                await connection.ExecuteAsync(@"
                     INSERT INTO `SLAYER_Duel` (`steamid`, `name`, `option`, `wins`, `losses`) VALUES (@SteamId, @Name, -1, 0, 1)
-                    ON CONFLICT(`steamid`) DO UPDATE SET `name` = @Name, `losses` = `losses` + 1;",
+                    ON DUPLICATE KEY UPDATE `name` = @Name, `losses` = `losses` + 1;",
                     new
                     {
                         SteamId = steamId,
                         Name = PlayerName
                     });
+                connection.Close();
             }
             catch (Exception ex)
             {
@@ -189,13 +212,20 @@ public partial class SLAYER_Duel : BasePlugin
             PlayerName = player.Controller.PlayerName;
         }
 
+        // Connection
+        using var connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
+        connection.Open();
+
         Task.Run(async () =>
         {
             try
             {
-                await _connection.ExecuteAsync(@"
+                using var connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
+                connection.Open();
+
+                await connection.ExecuteAsync(@"
                     INSERT INTO `SLAYER_Duel` (`steamid`, `name`, `option`, `wins`, `losses`) VALUES (@SteamId, @Name, -1, @Wins, @Losses)
-                    ON CONFLICT(`steamid`) DO UPDATE SET `name` = @Name, `wins` = @Wins, `losses` = @Losses;",
+                    ON DUPLICATE KEY UPDATE `name` = @Name, `wins` = @Wins, `losses` = @Losses;",
                     new
                     {
                         SteamId = steamId,
@@ -203,6 +233,8 @@ public partial class SLAYER_Duel : BasePlugin
                         Wins = wins,
                         Losses = losses
                     });
+                    
+                connection.Close();
             }
             catch (Exception ex)
             {
@@ -222,13 +254,20 @@ public partial class SLAYER_Duel : BasePlugin
     
     private void GetTopPlayersSettings(int limit, Action<List<PlayerSettings>> callback)
     {
+        // Connection
+        using var connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
+        connection.Open();
+        
         Task.Run(async () =>
         {
             var topPlayersSettings = new List<PlayerSettings>();
 
             try
             {
-                var result = await _connection.QueryAsync(@"
+                using var connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
+                connection.Open();
+
+                var result = await connection.QueryAsync(@"
                     SELECT `steamid`, `name`, `option`, `wins`, `losses` 
                     FROM `SLAYER_Duel` 
                     WHERE `wins` > 0 
@@ -282,6 +321,7 @@ public partial class SLAYER_Duel : BasePlugin
 
                     callback(topPlayersSettings);
                 });
+                connection.Close();
             }
             catch (Exception ex)
             {

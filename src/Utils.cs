@@ -3,6 +3,7 @@ using SwiftlyS2.Shared.Players;
 using SwiftlyS2.Shared.Plugins;
 using SwiftlyS2.Shared.SchemaDefinitions;
 using SwiftlyS2.Shared.Natives;
+using AudioApi;
 
 namespace SLAYER_Duel;
 
@@ -73,11 +74,21 @@ public partial class SLAYER_Duel : BasePlugin
         PlaySoundOnPlayer(player, "sounds/tools/sfm/beep.vsnd_c");
         return;
     }
-    private void PlaySoundOnPlayer(IPlayer? player, String sound)
+    private void PlaySoundOnPlayer(IPlayer? player, string soundPath)
     {
         if(player == null || !player.IsValid)return;
-        player.ExecuteCommand($"play {sound}");
-        
+        player.ExecuteCommand($"play {soundPath}");
+    }
+    private void PlayMP3SoundOnPlayer(IPlayer? player, string soundPath, float volume = 1.0f)
+    {
+        if(player == null || !player.IsValid)return;
+
+        IAudioChannelController controller = AudioApi.UseChannel("slayer_duel");
+        IAudioSource source = AudioApi.DecodeFromFile(Path.Combine(core.PluginDataDirectory, soundPath));
+        controller.SetSource(source);
+
+        controller.SetVolume(player.PlayerID, volume);
+        controller.Play(player.PlayerID);
     }
     private static readonly Vector VectorZero = new Vector(0, 0, 0);
     private static readonly QAngle RotationZero = new QAngle(0, 0, 0);
@@ -184,8 +195,7 @@ public partial class SLAYER_Duel : BasePlugin
     {
         foreach (var entity in Core.EntitySystem.GetAllEntities().Where(entity => entity != null && entity.IsValid))
         {
-            if (entity.DesignerName == "c4" ||
-                entity.DesignerName == "hostage_entity")
+            if (entity.DesignerName == "c4" || entity.DesignerName == "hostage_entity")
             {
                 entity.Despawn();
             }

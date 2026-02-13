@@ -17,7 +17,6 @@ public partial class SLAYER_Duel : BasePlugin
         .Design.SetMenuTitle($"{Localizer["MenuSettings.Title"]}")
         .Design.SetGlobalScrollStyle(MenuOptionScrollStyle.CenterFixed)
         .Build();
-        settingsMenu.DefaultComment = ""; // Clear default comment
         
         // Player Duel Rank
         var RankOption = new ButtonMenuOption($"{Localizer["PlayerMenu.Rank"]}");
@@ -89,7 +88,6 @@ public partial class SLAYER_Duel : BasePlugin
         .Design.SetGlobalScrollStyle(MenuOptionScrollStyle.CenterFixed)
         .BindToParent(parentMenu)
         .Build();
-        settingsMenu.DefaultComment = ""; // Clear default comment
 
         GetTopPlayersSettings(Config.Duel_TopPlayersCount, (topPlayers) =>
         {
@@ -136,7 +134,6 @@ public partial class SLAYER_Duel : BasePlugin
         .Design.SetGlobalScrollStyle(MenuOptionScrollStyle.CenterFixed)
         .BindToParent(parentMenu)
         .Build();
-        settingsMenu.DefaultComment = ""; // Clear default comment
 
         // Show current vote option
         var currentOption = new ButtonMenuOption($"{Localizer["PlayerMenu.Selected"]}: {SelectedOption}");
@@ -190,7 +187,6 @@ public partial class SLAYER_Duel : BasePlugin
         .Design.SetMenuTitle($"{Localizer["MenuSettings.Title"]}")
         .Design.SetGlobalScrollStyle(MenuOptionScrollStyle.CenterFixed)
         .Build();
-        settingsMenu.DefaultComment = ""; // Clear default comment
 
         // Set T Position
         var TeleportSetT = new ButtonMenuOption($"{Localizer["MenuSettings.TeleportSetT"]}");
@@ -259,7 +255,6 @@ public partial class SLAYER_Duel : BasePlugin
         .Design.SetMenuTitle($"{Localizer["Menu.Title"]}</font>")
         .Design.SetGlobalScrollStyle(MenuOptionScrollStyle.CenterFixed)
         .Build();
-        voteMenu.DefaultComment = ""; // Clear default comment
 
         // Accept Duel
         var acceptOption = new ButtonMenuOption($"{Localizer["Menu.Accept"]}");

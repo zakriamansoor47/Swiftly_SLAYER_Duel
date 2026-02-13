@@ -9,16 +9,12 @@ using SwiftlyS2.Shared.GameEvents;
 using SwiftlyS2.Shared.Misc;
 using SwiftlyS2.Shared.Players;
 using SwiftlyS2.Shared.Plugins;
-using SwiftlyS2.Shared.Convars;
-using SwiftlyS2.Shared.Sounds;
-using SwiftlyS2.Shared.Commands;
 using SwiftlyS2.Shared.Translation;
 using SwiftlyS2.Shared.SchemaDefinitions;
 using SwiftlyS2.Shared.Natives;
 using SwiftlyS2.Shared.Helpers;
 using SwiftlyS2.Shared.ProtobufDefinitions;
-using Dapper;
-using System.Data;
+using AudioApi;
 
 namespace SLAYER_Duel;
 
@@ -45,7 +41,8 @@ public class SLAYER_DuelConfig
     public bool Duel_Teleport { get; set; } = true;
     public bool Duel_FreezePlayers { get; set; } = false;
     public string Duel_DuelSoundPath { get; set; } = "";
-    public string Duel_DatabaseConnection { get; set; } = "local"; // name from database.jsonc
+    public float Duel_DuelSoundVolume { get; set; } = 1.0f;
+    public string Duel_DatabaseConnection { get; set; } = "default"; // name from database.jsonc
     public List<DuelModeSettings> Duel_Modes { get; set; } = new List<DuelModeSettings>
     {
         new DuelModeSettings()
@@ -72,7 +69,7 @@ public class DuelModeSettings
 [PluginMetadata
 (
     Id = "SLAYER_Duel", 
-    Version = "1.0", 
+    Version = "1.1", 
     Name = "SLAYER_Duel", 
     Author = "SLAYER", 
     Description = "1vs1 Duel at the end of the round with different weapons"
@@ -89,7 +86,6 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
     List<int> LastDuelNums = new List<int>();
     Dictionary<string, Dictionary<string, string>> Duel_Positions = new Dictionary<string, Dictionary<string, string>>();
 
-    IDbConnection _connection = null!;
     public bool[] g_Zoom = new bool[64];
     public bool g_BombPlanted = false;
     public bool g_DuelStarted = false;
@@ -114,6 +110,12 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
     public CancellationTokenSource? t_DuelTimer;
     Dictionary<IPlayer, CancellationTokenSource?> PlayerBeaconTimer = new Dictionary<IPlayer, CancellationTokenSource?>();
     Dictionary<IPlayer, (int, bool)> PlayerArmorBeforeDuel = new Dictionary<IPlayer, (int, bool)>();
+
+    public static IAudioApi AudioApi = null!;
+    public override void UseSharedInterface(IInterfaceManager interfaceManager)
+    {
+        AudioApi = interfaceManager.GetSharedInterface<IAudioApi>("audio");
+    }
     public override void Load(bool hotReload) 
     {
         // Ensure static Core is initialized before any usage.
@@ -135,9 +137,9 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
 
         Config = _provider.GetRequiredService<IOptions<SLAYER_DuelConfig>>().Value;
 
-        // Check database connection
-        _connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
-        _connection.Open();
+        // database connection
+        using var connection = Core.Database.GetConnection(Config.Duel_DatabaseConnection);
+        MigrationRunner.RunMigrations(connection);
 
         if(hotReload)
         {
@@ -146,20 +148,6 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
                 LoadPlayerSettings(player);
             }
         }
-        Task.Run(async () =>
-        {
-            await _connection.ExecuteAsync(@"CREATE TABLE IF NOT EXISTS `SLAYER_Duel` (`steamid` UNSIGNED BIG INT NOT NULL,`name` TEXT NOT NULL DEFAULT '',`option` INT NOT NULL DEFAULT -1,`wins` INT NOT NULL DEFAULT 0,`losses` INT NOT NULL DEFAULT 0, PRIMARY KEY (`steamid`));");
-            
-            // Migration: Add name column to existing databases
-            try
-            {
-                await _connection.ExecuteAsync(@"ALTER TABLE `SLAYER_Duel` ADD COLUMN `name` TEXT NOT NULL DEFAULT '';");
-            }
-            catch
-            {
-                // Column already exists, ignore the error
-            }
-        });
         LoadPositionsFromFile();
 
         // Listers
@@ -288,12 +276,14 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
             {
                 core.MenusAPI.CloseAllMenus();
             }
+
             g_PrepDuel = false;
             g_DuelStarted = false;
             g_IsDuelPossible = false;
             g_IsVoteStarted = false;
             if(t_PrepDuel != null)t_PrepDuel.Cancel();
             Core.Engine.ExecuteCommand("mp_default_team_winner_no_objective -1"); // Set to default after duel
+
             return HookResult.Continue;
         });
         Core.GameEvent.HookPost<EventWeaponFire>((@event) =>
@@ -561,7 +551,7 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
         foreach (var player in Core.PlayerManager.GetAllPlayers().Where(player => player != null && player.IsValid && player.Controller.TeamNum > 0))
         {
             
-            if(!player.IsFakeClient && Config.Duel_DuelSoundPath != "")PlaySoundOnPlayer(player, Config.Duel_DuelSoundPath); // Play Duel Sound to all players except Bots if any Given
+            if(!player.IsFakeClient && Config.Duel_DuelSoundPath != "")PlayMP3SoundOnPlayer(player, Config.Duel_DuelSoundPath, Config.Duel_DuelSoundVolume); // Play Duel Sound to all players except Bots if any Given
             if(player.Controller.TeamNum > 1 && player.Pawn?.LifeState == (byte)LifeState_t.LIFE_ALIVE) // Check Players who are in any Team and alive (only two duelist will be alive)
             {
                 if(Config.Duel_Teleport)TeleportPlayer(player.Controller);
@@ -653,6 +643,7 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
             player.PlayerPawn!.Health = GetDuelItem(DuelModeName).Health;
             player.PlayerPawn.VelocityModifier = GetDuelItem(DuelModeName).Speed;
             player.PlayerPawn.ActualGravityScale *= GetDuelItem(DuelModeName).Gravity;
+            player.PlayerPawn.GravityScale *= GetDuelItem(DuelModeName).Gravity;
             player.PlayerPawn.GravityScaleUpdated();
             player.PlayerPawn.VelocityModifierUpdated();
             if(GetDuelItem(DuelModeName).Helmet < 1)player.PlayerPawn.ArmorValue = GetDuelItem(DuelModeName).Armor;
@@ -692,6 +683,10 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
         int CTHealth = 0, THealth = 0;
         Random randomplayer = new Random();
         int killplayer = randomplayer.Next(0,2);
+
+        // Stop Duel Sound if any is given
+        var controller = AudioApi.UseChannel("slayer_duel");
+        if(controller != null) controller.StopAll();
         
         foreach (var player in Core.PlayerManager.GetAllPlayers().Where(player => player != null && player.IsValid && player.Controller.TeamNum > 0 && player.Pawn?.LifeState == (byte)LifeState_t.LIFE_ALIVE && g_DuelTime <= 0f))
         {
@@ -841,16 +836,5 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
     }
 
     public override void Unload()
-    {
-        // Properly dispose of database connection
-        try
-        {
-            _connection?.Close();
-            _connection?.Dispose();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[SLAYER_Duel] Error closing database connection: {ex.Message}");
-        }
-    }
+    {}
 } 
