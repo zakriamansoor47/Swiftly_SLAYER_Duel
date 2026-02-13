@@ -43,6 +43,7 @@ public class SLAYER_DuelConfig
     public string Duel_DuelSoundPath { get; set; } = "";
     public float Duel_DuelSoundVolume { get; set; } = 1.0f;
     public string Duel_DatabaseConnection { get; set; } = "default"; // name from database.jsonc
+    public string Duel_AdminFlag { get; set; } = "admin.root";
     public List<DuelModeSettings> Duel_Modes { get; set; } = new List<DuelModeSettings>
     {
         new DuelModeSettings()
@@ -111,10 +112,18 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
     Dictionary<IPlayer, CancellationTokenSource?> PlayerBeaconTimer = new Dictionary<IPlayer, CancellationTokenSource?>();
     Dictionary<IPlayer, (int, bool)> PlayerArmorBeforeDuel = new Dictionary<IPlayer, (int, bool)>();
 
-    public static IAudioApi AudioApi = null!;
+    public static IAudioApi? _audioApi;
     public override void UseSharedInterface(IInterfaceManager interfaceManager)
     {
-        AudioApi = interfaceManager.GetSharedInterface<IAudioApi>("audio");
+         if (!interfaceManager.HasSharedInterface("audio"))
+        {
+            Core.Logger.LogWarning("[SLAYER_Duel] Audio shared interface not found. Install/enable the 'Audio' plugin.");
+            _audioApi = null;
+            return;
+        }
+
+        var audioApi = interfaceManager.GetSharedInterface<IAudioApi>("audio");
+        _audioApi = audioApi;
     }
     public override void Load(bool hotReload) 
     {
@@ -149,6 +158,9 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
             }
         }
         LoadPositionsFromFile();
+
+        // Admin Command
+        Core.Command.RegisterCommand("duel_settings", DuelSettings);
 
         // Listers
         Core.Event.OnMapLoad += (mapname) =>
@@ -533,7 +545,9 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
     {
         try
         {
-            foreach (var weapon in Core.EntitySystem.GetAllEntities().Where(weapon => weapon != null && weapon.IsValid && (weapon.DesignerName.StartsWith("weapon_") || weapon.DesignerName.StartsWith("hostage_entity"))))
+            var weapons = Core.EntitySystem.GetAllEntities().Where(weapon => weapon != null && weapon.IsValid && (weapon.DesignerName.StartsWith("weapon_") || weapon.DesignerName.StartsWith("hostage_entity"))).ToList();
+
+            foreach (var weapon in weapons)
             {
                 weapon.Despawn();
             }
@@ -561,7 +575,7 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
                 if(Config.Duel_Beacon) // If Beacon Enabled
                 {
                     // Initialize the dictionary entry if not present
-                    if(PlayerBeaconTimer == null)PlayerBeaconTimer = new Dictionary<IPlayer, CancellationTokenSource?>(); // Initialize if null
+                    if(PlayerBeaconTimer == null) PlayerBeaconTimer = new Dictionary<IPlayer, CancellationTokenSource?>(); // Initialize if null
                     if(!PlayerBeaconTimer.ContainsKey(player)) PlayerBeaconTimer[player] = null; // Add the key if not present
                     if(PlayerBeaconTimer[player] != null)PlayerBeaconTimer[player]?.Cancel(); // Kill Timer if running
                     // Start Beacon
@@ -621,6 +635,8 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
     public void StartDuel(string DuelModeName)
     {
         if(!g_IsDuelPossible || !Config.Duel_Modes.Contains(GetDuelItem(DuelModeName)))return;
+
+        RemoveAllWeaponsFromMap(); // Remove all weapons from Map again at the start of duel to avoid any weapon left on map after prep time
         string[] weapons = GetDuelItem(DuelModeName).Weapons.Split(",");
         string[] Commands = GetDuelItem(DuelModeName).CMD.Split(",");
         
@@ -685,8 +701,11 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
         int killplayer = randomplayer.Next(0,2);
 
         // Stop Duel Sound if any is given
-        var controller = AudioApi.UseChannel("slayer_duel");
-        if(controller != null) controller.StopAll();
+        if(_audioApi != null)
+        {
+            var controller = _audioApi.UseChannel("slayer_duel");
+            if(controller != null) controller.StopAll();
+        }
         
         foreach (var player in Core.PlayerManager.GetAllPlayers().Where(player => player != null && player.IsValid && player.Controller.TeamNum > 0 && player.Pawn?.LifeState == (byte)LifeState_t.LIFE_ALIVE && g_DuelTime <= 0f))
         {

@@ -83,8 +83,18 @@ public partial class SLAYER_Duel : BasePlugin
     {
         if(player == null || !player.IsValid)return;
 
-        IAudioChannelController controller = AudioApi.UseChannel("slayer_duel");
-        IAudioSource source = AudioApi.DecodeFromFile(Path.Combine(core.PluginDataDirectory, soundPath));
+        if (_audioApi == null)
+        {
+            Core.Logger.LogError($"[SLAYER_Duel] Audio API is not initialized. Cannot play sound for player {player.Name}");
+            return;
+        }
+        var controller = _audioApi.UseChannel("slayer_duel");
+        if (controller == null)
+        {
+            Core.Logger.LogError($"[SLAYER_Duel] Failed to get audio channel for player {player.Name}");
+            return;
+        }
+        IAudioSource source = _audioApi.DecodeFromFile(Path.Combine(core.PluginDataDirectory, soundPath));
         controller.SetSource(source);
 
         controller.SetVolume(player.PlayerID, volume);
