@@ -20,7 +20,7 @@ If you like this project, consider supporting me:
 This Plugin allows Players to do **1vs1 Duel**. This plugin has many features. The main feature is that you can your own **Custom Duel Mode** from **JSON** file Easily.
 
 ## Required:
-**[T3Menu](https://github.com/T3Marius/T3Menu-API)** - To Use WASD Menu
+**[Audio](https://github.com/SwiftlyS2-Plugins/Audio)** - To Use Sounds
 
 ## Installation:
 **1.** Upload files to your server.

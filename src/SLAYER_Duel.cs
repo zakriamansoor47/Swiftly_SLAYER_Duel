@@ -70,7 +70,7 @@ public class DuelModeSettings
 [PluginMetadata
 (
     Id = "SLAYER_Duel", 
-    Version = "1.1", 
+    Version = "1.2", 
     Name = "SLAYER_Duel", 
     Author = "SLAYER", 
     Description = "1vs1 Duel at the end of the round with different weapons"
@@ -395,18 +395,18 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
             var attacker = @event.AttackerPlayer;
             if(player == null || attacker == null || !player.IsValid || !attacker.IsValid)return HookResult.Continue;
             // Some Checks to validate Attacker
-            if (player.TeamNum == attacker.Controller.TeamNum && !(@event.DmgHealth > 0 || @event.DmgArmor > 0))return HookResult.Continue;
+            if (player.TeamNum == attacker.Controller.TeamNum && !(@event.ActualDmgHealth > 0 || @event.ActualDmgArmor > 0))return HookResult.Continue;
 
-            if(g_DuelHSOnly && @event.HitGroup != (byte)HitGroup_t.HITGROUP_HEAD) // if headshot is enabled and bullet not hitting on Head
+            if(g_DuelHSOnly && @event.ActualHitGroup != HitGroup_t.HITGROUP_HEAD) // if headshot is enabled and bullet not hitting on Head
             {
-                player.PlayerPawn.Value!.Health += @event.DmgHealth; // add the dmg health to Normal health
-                player.PlayerPawn.Value.ArmorValue += @event.DmgArmor; // Update the Armor as well
+                player.PlayerPawn.Value!.Health += @event.ActualDmgHealth; // add the dmg health to Normal health
+                player.PlayerPawn.Value.ArmorValue += @event.ActualDmgArmor; // Update the Armor as well
             }
 
             if(g_DuelDisableKnife && @event.Weapon.Contains("knife") || @event.Weapon.Contains("bayonet")) // if DisableKnife is Enabled then Disable Knife Damage
             {
-                player.PlayerPawn.Value!.Health += @event.DmgHealth; // add the dmg health to Normal health
-                player.PlayerPawn.Value.ArmorValue += @event.DmgArmor; // Update the Armor as well
+                player.PlayerPawn.Value!.Health += @event.ActualDmgHealth; // add the dmg health to Normal health
+                player.PlayerPawn.Value.ArmorValue += @event.ActualDmgArmor; // Update the Armor as well
                 attacker.SendChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.Duel.Knife"]}"); // Send Message to attacker
             }
             return HookResult.Continue;
