@@ -1,7 +1,8 @@
+
 <div align="center">
   <img src="https://pan.samyyc.dev/s/VYmMXE" />
   <h2><strong>SLAYER_Duel</strong></h2>
-  <h3>1vs1 Duel at the end of the round with different weapons</h3>
+  <h3>1v1 duels at the end of a round with different weapons</h3>
 </div>
 
 <p align="center">
@@ -9,191 +10,306 @@
   <img src="https://img.shields.io/github/stars/zakriamansoor47/Swiftly_SLAYER_Duel?style=flat&logo=github" alt="Stars">
 </p>
 
-# Accepting Paid Request! Discord: Slayer47#7002
+# Accepting Paid Requests!
+Discord: Slayer47#7002
+
 # Donation
+
 If you like this project, consider supporting me:
 
-<a href="https://www.buymeacoffee.com/slayer47" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+<a href="https://www.buymeacoffee.com/slayer47" target="_blank">
+  <img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;">
+</a>
+
 [![PayPal](https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.jpg)](https://paypal.me/zakriamansoor)
 
-## Description:
-This Plugin allows Players to do **1vs1 Duel**. This plugin has many features. The main feature is that you can your own **Custom Duel Mode** from **JSON** file Easily.
+## Description
 
-## Required:
-**[Volume](https://github.com/a2Labs-cc/Volume.API)** - To adjust the volume with !volume
-**[Audio](https://github.com/SwiftlyS2-Plugins/Audio)** - Optional, if you want to use the Swiftly Audio method
+SLAYER_Duel is a SwiftlyS2 plugin that allows the last two remaining players to participate in a **1v1 duel** at the end of a round.
 
-## Installation:
-**1.** Upload files to your server.
+The plugin offers extensive customization, including the ability to create your own **Duel Modes** using a JSON configuration file.
 
-**2.** Edit **configs/plugins/SLAYER_Duel/SLAYER_Duel.json** if you want to change the settings.
+You can configure weapons, health, armor, player speed, gravity, special rules, rewards, and much more.
 
-**3.** Change the Map **or** Restart the Server **or** Load the Plugin.
+The plugin supports two different audio playback methods for duel-start sounds:
 
-## Features:
-**1.** Fully Customizable.
+- **Workshop Sound Events + Volume API** — Plays sounds through the native CS2 sound system. Players can adjust Workshop sound volume using the global `!volume` command.
+- **Swiftly Audio API** — Plays sounds through the Swiftly Audio plugin using its audio playback system.
 
-**2.** You can create your own **Duel Modes**.
+## Requirements
 
-**3.** You can **Force Players** to do Duel **OR** You can take **Vote from Players** to Duel.
+- **[SwiftlyS2](https://github.com/swiftly-solution/swiftlys2)** — Required plugin framework.
+- **[Volume API](https://github.com/a2Labs-cc/Volume.API)** — Required for Workshop sound volume control using `!volume`.
+- **[Audio](https://github.com/SwiftlyS2-Plugins/Audio)** — Optional. Required only when using the Swiftly Audio playback method.
 
-**4.** This Plugin Draw a **Green Laser Beam** Between Players to find each other if they are Far from each other.
+**Note:** The Audio plugin is not required when using Workshop Sound Events.
 
-**5.** You can set Duel Draw Punishment
+## Installation
 
-**6.** You can set players health, armor, speed, gravity.
+1. Download the latest plugin release.
+2. Upload the plugin files to your CS2 server.
+3. Install the required dependencies for your selected audio playback method.
+4. Edit the configuration file:
 
-**7.** You can also set Noscope only, and Headshot-only modes in Duel.
+   `configs/plugins/SLAYER_Duel/SLAYER_Duel.json`
 
-**8.** You can give ANY weapon to Players.
+5. Configure your preferred Duel Modes and sound settings.
+6. Restart the server, change the map, or reload the plugin.
 
-**9.** You can Execute Server Commands on Duel Start and End.
+**Workshop users:** Make sure the required sound files are included in your Workshop addon and the Sound Event file is configured correctly.
 
-**10.** You can Enable/Disable Bullet Tracers in Duel Mode.
+## Features
 
-**11.** You can Enable/Disable **Beacon** on Players.
+1. Fully customizable duel system.
+2. Create custom **Duel Modes** through JSON configuration.
+3. Force players into duels or allow them to vote.
+4. Draw a **green laser beam** between players to help them find each other.
+5. Configure punishments when the duel timer expires.
+6. Customize player health, armor, movement speed, and gravity.
+7. Enable **Noscope Only** and **Headshot Only** modes.
+8. Give players any supported weapon.
+9. Execute custom server commands when duels start and end.
+10. Enable or disable bullet tracers during duels.
+11. Enable or disable player beacons.
+12. Add or remove **custom teleport points** using `!duel_settings` (root admins only).
+13. Disable knife damage while keeping the knife available for movement or weapon switching.
+14. Enable or disable duels between bots.
+15. Enable or disable player-versus-bot duels.
+16. Play a custom sound when a duel starts.
+17. Enable infinite ammunition (unlimited clip or reserve ammo).
+18. Reward duel winners with additional health, speed, or money in the next round.
+19. Allow players to configure their duel voting preferences using `!duel`.
+20. Track and display duel statistics.
+21. Support Workshop Sound Events and the optional Swiftly Audio plugin.
+22. Support Volume API for Workshop sound volume control.
+23. Support translatable chat messages.
 
-**12.** You can add/remove **Custom Teleport Points** through **!duel_settings** command (Only for Root Admins).
+## Commands
 
-**13.** You can Disable the Knife Damage in Duel Modes. (By disabling Knife damage you can still able to swap weapons or run fast. Best for the modes like AWP+Noscope)
+| Command | Description |
+|---------|-------------|
+| `!duel` | Configure duel voting preferences and view duel statistics. |
+| `!duel_settings` | Add or remove custom teleport points (root admins only). |
+| `!volume` | Open the global Volume API controls for Workshop sounds. |
 
-**14.** You can Enable/Disable Duel Between Bots.
+## Audio Playback and Volume Control
 
-**15.** You can Enable/Disable Duel with Player vs Bot.
+SLAYER_Duel supports two audio playback methods, selectable through the configuration file.
 
-**16.** Play Sound with Duel Starts.
+### 1. Workshop Sound Events (Recommended)
 
-**17.** You can Enable/Disable Infinite Ammo in Duel. Infinite Clip and Reserve Ammo
+Set:
 
-**18.** The duel winner can get extra (health, speed, money) in the next round after the duel.
+```jsonc
+"Duel_UseAudioPlugin": false
+```
 
-**19.** Players can set their Duel Vote Choice by `!duel` command
+- Plays sounds through the native CS2 sound system.
+- Uses Workshop sound files and Sound Events.
+- Does not require the Swiftly Audio plugin.
+- Supports player volume control through `!volume` using Volume API.
+- Does not apply the plugin's own Audio volume multiplier to Workshop playback.
+- Avoids server-side VoIP audio encoding.
+- Recommended for better sound quality and reduced server-side audio processing overhead.
 
-**20.** Duel Stats
+When Workshop playback is enabled, players can use `!volume` to adjust their sound volume.
 
-**21.** And much more.
+### 2. Swiftly Audio Plugin
 
+Set:
 
-## Commands:
-`!duel` - To set Duel Vote Choice every time and to Check Players Duel Stats (For all players)
-`!duel_settings` - To Set/Delete Custom Teleport Points for Duel. (Only for Root Admins)
-`!volume` - To adjust the volume, if you use it without Audio
+```jsonc
+"Duel_UseAudioPlugin": true
+```
 
+- Requires the Swiftly Audio plugin.
+- Plays duel-start sounds through the Audio API.
+- Uses the plugin's Audio-specific volume settings instead of Workshop volume control.
 
-## Configuration:
+**Important:** The global `!volume` command is intended for Workshop sounds and does not replace Audio API volume settings.
+
+## Configuration
+
+Configuration file:
+
+`configs/plugins/SLAYER_Duel/SLAYER_Duel.json`
+
 ```jsonc
 {
-  "PluginEnabled": true,          		// Enable/Disable Plugin
-  "Duel_ForceStart": false,       		// Force Start Duel? (true = Yes, false = Vote for Duel)
-  "Duel_ShowDuelCounterIn": 1,  		// Location of Duel Start Counter? (1 = Center HTML, 2 = Center Alert)
-  "Duel_TopPlayersCount": 10,			// Show how many top players in the !duel menu
-  "Duel_FreezePlayerOnMenuShown": true, // FreezePlayerOnMenuShown? (true = Freeze, false = Don't Freeze)
-  "Duel_UseAudioPlugin": false,
+  "PluginEnabled": true,                  // Enable or disable the plugin.
+  "Duel_ForceStart": false,               // true = Forced duel, false = Players vote.
+  "Duel_ShowDuelCounterIn": 1,            // 1 = Center HTML, 2 = Center Alert.
+  "Duel_TopPlayersCount": 10,             // Number of top players displayed in the !duel menu.
+  "Duel_FreezePlayerOnMenuShown": true,   // Freeze players while the menu is open.
+  "Duel_UseAudioPlugin": false,           // false = Workshop, true = Swiftly Audio.
   "Duel_SoundEventFile": "path/your.vsndevts",
-  "Duel_DrawLaserBeam": true,     		// Draw a Laser Beam Between Players to find each other if they are Far from Each other. 
-  "Duel_WinnerExtraHealth": 10,	  		// The amount of extra health to give the winner for the next round only. (0 = no extra health)
-  "Duel_WinnerExtraSpeed": 0.2,	  		// The amount of extra speed given to the winner for the next round only. (0.0 = no extra speed)
-  "Duel_WinnerExtraMoney": 1000,  		// The amount of extra money to give the winner for the next round only. (0 = no extra money)
-  "Duel_Time": 30,                		// Duel Time
-  "Duel_PrepTime": 3,             		// Duel Preperation Time
-  "Duel_MinPlayers": 3,           		// Minimum Players needed on Server to Start Duel (3 - is the minimum Value, otherwise duel won't start)
-  "Duel_DrawPunish": 3,           		// What to do with the players when the timer expires? 0 - Nothing, 1 - Kill both, 2 - Kill a random player, 3 - Kill the one with less health (if non of them is given any damage then kill both).
-  "Duel_Beacon": true,            		// Enable/Disable Beacon on Players
-  "Duel_Teleport": true,          		// Teleport Players to Custom Teleport Points? (true = Yes, false = No) Set Custom Teleport Points with `!duel_settings` (Only for ROOT Admins) Command. 
-  "Duel_FreezePlayers": false,    		// Freeze Players During Duel Preparation time? (true = Yes, false = No)
-  "Duel_BotAcceptDuel": true,     		// Bot do Duel with Player? (true = Yes, false = No)
-  "Duel_BotsDoDuel": true,        		// Bots do Duel with each other? (true = Yes, false = No)
-  "Duel_DuelSoundPath": "",       		// Path of the Duel Sound which will play on Duel Start? NOTE: Please Use a very short sound cause there is no way to stop the sound if Duel Ends. ("" = Disabled)
+  "Duel_DrawLaserBeam": true,             // Draw a laser beam between duel players.
+  "Duel_WinnerExtraHealth": 10,           // Extra health for the winner next round.
+  "Duel_WinnerExtraSpeed": 0.2,           // Extra speed for the winner next round.
+  "Duel_WinnerExtraMoney": 1000,          // Extra money for the winner next round.
+  "Duel_Time": 30,                        // Duel duration in seconds.
+  "Duel_PrepTime": 3,                     // Duel preparation time in seconds.
+  "Duel_MinPlayers": 3,                   // Minimum players required (minimum value: 3).
+  "Duel_DrawPunish": 3,                   // 0 = Nothing, 1 = Kill both, 2 = Kill random player,
+                                        // 3 = Kill player with less health (or both if tied).
+  "Duel_Beacon": true,                    // Enable player beacons.
+  "Duel_Teleport": true,                  // Use custom teleport points configured with !duel_settings.
+  "Duel_FreezePlayers": false,            // Freeze players during preparation.
+  "Duel_BotAcceptDuel": true,             // Allow player-versus-bot duels.
+  "Duel_BotsDoDuel": true,                // Allow bot-versus-bot duels.
+  "Duel_DuelSoundPath": "",               // Duel-start sound path. Empty = Disabled.
+                                        // Use a short sound because playback may continue after the duel ends.
+
   "Duel_Modes": [
-    // Example Duel Mode
+    // Example of a fully customizable Duel Mode:
     //{
-    //  "Weapons": "weapon_awp,weapon_knife",                       // Weapons with Players Fight. (Separate Weapons with ',')
-    //  "CMD": "sv_autobunnyhopping 0",                             // Execute Commands on Duel Start. (Separate Commands with ',')
-    //  "CMD_End": "sv_autobunnyhopping 1,sv_autobunnyhopping 1",   // Execute Commands on Duel End. (Separate Commands with ',')
-    //  "Health": 100,                                              // Health of the Players?
-    //  "Armor": 100,                                               // Armor of the Players? No Helmet will be given
-    //  "Helmet": 0,                                                // 0 = No Helmet, 1 = Helmet + 100 Armor
-    //  "Speed": 2.0,                                               // Speed of the Players? (1.0 = Normal, <1.0 = Slow, >1.0 = Fast)
-    //  "Gravity": 0.2,                                             // Gravity of the Players? (1.0 = Normal Gravity, <1.0 = Low Gravity, >1.0 = High Gravity)
-    //	"InfiniteAmmo": 2,											// Infinite Ammo (0 = Disable | 1 = Unlimited Clip Ammo | 2 = Unlimited Reserve Ammo)
-	//  "NoZoom": true,                                             // Enable Noscope Only? (true = Yes, false = No)
-    //  "OnlyHeadshot": true,                                       // Enable Headshot Only? (true = Yes, false = No)
-    //  "BulletTracers": true,                                      // Show Bullet Tracers? (true = Yes, false = No)
-    //  "DisableKnife": true,                                       // Disable Knife Damage? (true = Yes, false = No)
-    //  "Name": "Awp+Noscope"                                       // Duel Mode Name (Required)
+    //  "Weapons": "weapon_awp,weapon_knife",
+    //  "CMD": "sv_autobunnyhopping 0",
+    //  "CMD_End": "sv_autobunnyhopping 1",
+    //  "Health": 100,
+    //  "Armor": 100,
+    //  "Helmet": 0,
+    //  "Speed": 2.0,
+    //  "Gravity": 0.2,
+    //  "InfiniteAmmo": 2,
+    //  "NoZoom": true,
+    //  "OnlyHeadshot": true,
+    //  "BulletTracers": true,
+    //  "DisableKnife": true,
+    //  "Name": "Awp+Noscope"
     //},
-	{
-		"Weapons": "weapon_knife",
-		"Health": 100,
-		"Armor": 0,
-		"Helmet": 0,
-		"CMD": "sv_autobunnyhopping 1",
-		"CMD_End": "sv_autobunnyhopping 0",
-		"Name": "Knife Only + Bhop"
-    },
-	{
-		"Weapons": "weapon_knife",
-		"Health": 35,
-		"Armor": 0,
-		"Helmet": 0,
-		"Name": "35 HP + Knife Only"
+
+    {
+      "Weapons": "weapon_knife",
+      "Health": 100,
+      "Armor": 0,
+      "Helmet": 0,
+      "CMD": "sv_autobunnyhopping 1",
+      "CMD_End": "sv_autobunnyhopping 0",
+      "Name": "Knife Only + Bhop"
     },
     {
-		"Weapons": "weapon_awp,weapon_knife",
-		"Health": 100,
-		"Armor": 100,
-		"Helmet": 0,
-		"InfiniteAmmo": 2,
-		"NoZoom": true,
-		"BulletTracers": true,
-		"DisableKnife": true,
-		"Name": "Awp+Noscope"
+      "Weapons": "weapon_knife",
+      "Health": 35,
+      "Armor": 0,
+      "Helmet": 0,
+      "Name": "35 HP + Knife Only"
     },
     {
-		"Weapons": "weapon_ssg08,weapon_knife",
-		"Health": 100,
-		"Armor": 100,
-		"Helmet": 0,
-		"Gravity": 0.2,
-		"InfiniteAmmo": 2,
-		"BulletTracers": true,
-		"DisableKnife": true,
-		"Name": "Scout+Gravity"
+      "Weapons": "weapon_awp,weapon_knife",
+      "Health": 100,
+      "Armor": 100,
+      "Helmet": 0,
+      "InfiniteAmmo": 2,
+      "NoZoom": true,
+      "BulletTracers": true,
+      "DisableKnife": true,
+      "Name": "Awp+Noscope"
     },
     {
-		"Weapons": "weapon_nova,weapon_knife",
-		"Health": 200,
-		"Armor": 100,
-		"Helmet": 0,
-		"Speed": 2,
-		"InfiniteAmmo": 2,
-		"OnlyHeadshot": true,
-		"BulletTracers": true,
-		"DisableKnife": true,
-		"Name": "Shotgun+Speed"
+      "Weapons": "weapon_ssg08,weapon_knife",
+      "Health": 100,
+      "Armor": 100,
+      "Helmet": 0,
+      "Gravity": 0.2,
+      "InfiniteAmmo": 2,
+      "BulletTracers": true,
+      "DisableKnife": true,
+      "Name": "Scout+Gravity"
     },
     {
-		"Weapons": "weapon_ak47,weapon_knife",
-		"Health": 100,
-		"Armor": 100,
-		"Helmet": 0,
-		"InfiniteAmmo": 2,
-		"OnlyHeadshot": true,
-		"BulletTracers": true,
-		"DisableKnife": true,
-		"Name": "AK47+Headshot"
+      "Weapons": "weapon_nova,weapon_knife",
+      "Health": 200,
+      "Armor": 100,
+      "Helmet": 0,
+      "Speed": 2,
+      "InfiniteAmmo": 2,
+      "OnlyHeadshot": true,
+      "BulletTracers": true,
+      "DisableKnife": true,
+      "Name": "Shotgun+Speed"
     },
     {
-		"Weapons": "weapon_hegrenade,weapon_knife",
-		"Health": 100,
-		"Armor": 100,
-		"Helmet": 0,
-		"InfiniteAmmo": 1,
-		"BulletTracers": true,
-		"DisableKnife": true,
-		"Name": "Grenade Only"
+      "Weapons": "weapon_ak47,weapon_knife",
+      "Health": 100,
+      "Armor": 100,
+      "Helmet": 0,
+      "InfiniteAmmo": 2,
+      "OnlyHeadshot": true,
+      "BulletTracers": true,
+      "DisableKnife": true,
+      "Name": "AK47+Headshot"
+    },
+    {
+      "Weapons": "weapon_hegrenade,weapon_knife",
+      "Health": 100,
+      "Armor": 100,
+      "Helmet": 0,
+      "InfiniteAmmo": 1,
+      "BulletTracers": true,
+      "DisableKnife": true,
+      "Name": "Grenade Only"
     }
   ]
 }
 ```
 
+## Configuration Options
+
+| Setting | Description |
+|---------|-------------|
+| `PluginEnabled` | Enable or disable the entire plugin. |
+| `Duel_ForceStart` | Force duels or require player voting. |
+| `Duel_ShowDuelCounterIn` | Select the duel countdown display type. |
+| `Duel_TopPlayersCount` | Number of players shown in the duel leaderboard. |
+| `Duel_FreezePlayerOnMenuShown` | Freeze players while the duel menu is open. |
+| `Duel_UseAudioPlugin` | Choose Swiftly Audio (`true`) or Workshop Sound Events (`false`). |
+| `Duel_SoundEventFile` | Path to the Workshop Sound Event file. |
+| `Duel_DrawLaserBeam` | Enable or disable the laser beam between duel players. |
+| `Duel_WinnerExtraHealth` | Additional health awarded to the winner next round. |
+| `Duel_WinnerExtraSpeed` | Additional movement speed awarded to the winner next round. |
+| `Duel_WinnerExtraMoney` | Additional money awarded to the winner next round. |
+| `Duel_Time` | Duel duration in seconds. |
+| `Duel_PrepTime` | Preparation time before a duel begins. |
+| `Duel_MinPlayers` | Minimum number of players required to start a duel. |
+| `Duel_DrawPunish` | Punishment applied when the duel timer expires. |
+| `Duel_Beacon` | Enable or disable player beacons. |
+| `Duel_Teleport` | Enable or disable custom teleport locations. |
+| `Duel_FreezePlayers` | Freeze players during duel preparation. |
+| `Duel_BotAcceptDuel` | Allow duels between a player and a bot. |
+| `Duel_BotsDoDuel` | Allow duels between bots. |
+| `Duel_DuelSoundPath` | Sound played when a duel starts. |
+| `Duel_Modes` | List of custom duel modes and their rules. |
+
+## Custom Duel Modes
+
+You can create additional duel modes by adding new entries to the `Duel_Modes` array.
+
+Each mode can define its own:
+
+- Weapons and ammunition settings.
+- Health and armor.
+- Movement speed and gravity.
+- Noscope-only or headshot-only restrictions.
+- Bullet tracers and knife damage settings.
+- Server commands executed at duel start and end.
+
+The `Name` field identifies the duel mode.
+
+## Translations
+
+SLAYER_Duel supports customizable chat messages through its translation files.
+
+For Workshop audio playback, the volume notification can be translated using:
+
+```jsonc
+"Chat.Duel.WorkshopVolume": "[gold]To adjust Workshop duel sound volume, use [lime]!volume[gold]."
+```
+
+When Workshop playback is enabled, the volume notification can be displayed when a player opens the `!duel` menu.
+
+## Support
+
+For questions, bug reports, or paid requests:
+
+**Discord:** Slayer47#7002
