@@ -1,0 +1,8 @@
+{
+  "Main": {
+    "Duel_UseAudioPlugin": true,
+    "Duel_SoundEventFile": "",
+    "Duel_DuelSoundPath": "duel.mp3",
+    "Duel_DuelSoundVolume": 1.0
+  }
+}

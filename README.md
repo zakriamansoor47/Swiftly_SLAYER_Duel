@@ -20,7 +20,8 @@ If you like this project, consider supporting me:
 This Plugin allows Players to do **1vs1 Duel**. This plugin has many features. The main feature is that you can your own **Custom Duel Mode** from **JSON** file Easily.
 
 ## Required:
-**[Audio](https://github.com/SwiftlyS2-Plugins/Audio)** - To Use Sounds
+**[Volume](https://github.com/a2Labs-cc/Volume.API)** - To adjust the volume with !volume
+**[Audio](https://github.com/SwiftlyS2-Plugins/Audio)** - Optional, if you want to use the Swiftly Audio method
 
 ## Installation:
 **1.** Upload files to your server.
@@ -76,6 +77,7 @@ This Plugin allows Players to do **1vs1 Duel**. This plugin has many features. T
 ## Commands:
 `!duel` - To set Duel Vote Choice every time and to Check Players Duel Stats (For all players)
 `!duel_settings` - To Set/Delete Custom Teleport Points for Duel. (Only for Root Admins)
+`!volume` - To adjust the volume, if you use it without Audio
 
 
 ## Configuration:
@@ -86,6 +88,8 @@ This Plugin allows Players to do **1vs1 Duel**. This plugin has many features. T
   "Duel_ShowDuelCounterIn": 1,  		// Location of Duel Start Counter? (1 = Center HTML, 2 = Center Alert)
   "Duel_TopPlayersCount": 10,			// Show how many top players in the !duel menu
   "Duel_FreezePlayerOnMenuShown": true, // FreezePlayerOnMenuShown? (true = Freeze, false = Don't Freeze)
+  "Duel_UseAudioPlugin": false,
+  "Duel_SoundEventFile": "path/your.vsndevts",
   "Duel_DrawLaserBeam": true,     		// Draw a Laser Beam Between Players to find each other if they are Far from Each other. 
   "Duel_WinnerExtraHealth": 10,	  		// The amount of extra health to give the winner for the next round only. (0 = no extra health)
   "Duel_WinnerExtraSpeed": 0.2,	  		// The amount of extra speed given to the winner for the next round only. (0.0 = no extra speed)
