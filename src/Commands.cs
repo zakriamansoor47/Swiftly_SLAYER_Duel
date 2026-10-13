@@ -12,6 +12,9 @@ public partial class SLAYER_Duel : BasePlugin
         var player = command.Sender;
         if (!Config.PluginEnabled || player == null || !player.IsValid) return;
 
+        if (_audioApi == null)
+            player.SendChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.Duel.WorkshopVolume"]}");
+
         PlayerDuelSettingsMenu(player);
     }
 
