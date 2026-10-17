@@ -12,6 +12,7 @@
     "Chat.RejectedDuel.T":                      "[red]{0} [green]Rejected [gold]to Duel!",
     "Chat.RejectedDuel.CT":                     "[blue]{0} [green]Rejected [gold]to Duel!",
     "Chat.RejectedDuel.Both":                   "[purple]Both Players [green]Rejected [gold]to Duel!",
+    "Chat.Duel.WorkshopVolume":                 "[gold]To adjust Workshop duel sound volume, use [lime]!volume[gold].",
     "Chat.Duel.Started":                        "[darkred]Duel Started: [green]{0}",
     "Chat.Duel.EndWins":                        "[darkred]Duel Ended! [lightpurple]And the [gold]Winner [lightpurple]is: [green]{0}",
     "Chat.Duel.EndDraw":                        "[darkred]Duel Ended! [grey]Draw",

@@ -4,6 +4,9 @@ using SwiftlyS2.Shared.Plugins;
 using SwiftlyS2.Shared.SchemaDefinitions;
 using SwiftlyS2.Shared.Natives;
 using AudioApi;
+using SwiftlyS2.Shared.Events;
+using SwiftlyS2.Shared.Sounds;
+using SwiftlyS2.Shared.ProtobufDefinitions;
 
 namespace SLAYER_Duel;
 
@@ -79,27 +82,124 @@ public partial class SLAYER_Duel : BasePlugin
         if(player == null || !player.IsValid)return;
         player.ExecuteCommand($"play {soundPath}");
     }
-    private void PlayMP3SoundOnPlayer(IPlayer? player, string soundPath, float volume = 1.0f)
+    private static float ClampSoundVolume(float volume) =>
+        float.IsFinite(volume) ? Math.Clamp(volume, 0f, 1f) : 0f;
+
+    private float GetDuelSoundVolume(IPlayer player)
     {
-        if(player == null || !player.IsValid)return;
+        // Audio playback retains its own configured sound volume.
+        if (_audioApi != null) return ClampSoundVolume(Config.Duel_DuelSoundVolume);
 
-        if (_audioApi == null)
+        // Workshop playback is exclusively controlled by Volume API (!volume).
+        if (_getEffectiveVolume == null) return 1f;
+        try
         {
-            Core.Logger.LogError($"[SLAYER_Duel] Audio API is not initialized. Cannot play sound for player {player.Name}");
-            return;
+            return ClampSoundVolume(_getEffectiveVolume((long)player.SteamID, VolumeFeature));
         }
-        var controller = _audioApi.UseChannel("slayer_duel");
-        if (controller == null)
+        catch (Exception ex)
         {
-            Core.Logger.LogError($"[SLAYER_Duel] Failed to get audio channel for player {player.Name}");
-            return;
+            Core.Logger.LogError(ex, "[SLAYER_Duel] Volume API failed; using default Workshop volume until reload.");
+            _getEffectiveVolume = null;
+            return 1f;
         }
-        IAudioSource source = _audioApi.DecodeFromFile(Path.Combine(core.PluginDataDirectory, soundPath));
-        controller.SetSource(source);
-
-        controller.SetVolume(player.PlayerID, volume);
-        controller.Play(player.PlayerID);
     }
+
+    private void PlayDuelMusic()
+    {
+        var soundName = Config.Duel_DuelSoundPath?.Trim();
+        if (string.IsNullOrWhiteSpace(soundName)) return;
+        StopDuelSounds();
+        var players = Core.PlayerManager.GetAllValidPlayers()
+            .Where(p => !p.IsFakeClient && p.Controller.TeamNum > 0).ToArray();
+        if (players.Length == 0) return;
+
+        if (_audioApi != null)
+        {
+            try
+            {
+                var controller = _audioApi.UseChannel("slayer_duel");
+                if (controller == null)
+                {
+                    Core.Logger.LogError("[SLAYER_Duel] Audio channel is unavailable.");
+                    return;
+                }
+                // Decode and prepare once per duel, instead of once per listener.
+                var path = Path.IsPathRooted(soundName) ? soundName : Path.Combine(core.PluginDataDirectory, soundName);
+                IAudioSource source = _audioApi.DecodeFromFile(path);
+                controller.SetSource(source);
+                foreach (var player in players)
+                {
+                    var volume = GetDuelSoundVolume(player);
+                    if (volume <= 0f) continue;
+                    controller.SetVolume(player.PlayerID, volume);
+                    controller.Play(player.PlayerID);
+                }
+            }
+            catch (Exception ex)
+            {
+                Core.Logger.LogError(ex, "[SLAYER_Duel] Failed to play Audio sound {Sound}", soundName);
+            }
+            return;
+        }
+
+        // Workshop mode requires a registered event name, not an MP3/VSND path.
+        foreach (var player in players)
+        {
+            var volume = GetDuelSoundVolume(player);
+            if (volume <= 0f) continue;
+            try
+            {
+                using var soundEvent = new SoundEvent
+                {
+                    Name = soundName,
+                    Volume = volume,
+                    SourceEntityIndex = player.Pawn == null ? -1 : (int)player.Pawn.Index
+                };
+                soundEvent.Recipients.AddRecipient(player.PlayerID);
+                _addonSounds[player.PlayerID] = (player.SteamID, soundEvent.Emit());
+            }
+            catch (Exception ex)
+            {
+                Core.Logger.LogError(ex, "[SLAYER_Duel] Failed to emit addon sound event {Sound}", soundName);
+            }
+        }
+    }
+
+    private void OnPrecacheDuelSounds(IOnPrecacheResourceEvent @event)
+    {
+        // Register for fallback too: shared interfaces may be injected after precache.
+        if (!string.IsNullOrWhiteSpace(Config.Duel_SoundEventFile))
+            @event.AddItem(Config.Duel_SoundEventFile);
+    }
+
+    private void StopDuelSounds()
+    {
+        try { _audioApi?.UseChannel("slayer_duel")?.StopAll(); }
+        catch (Exception ex) { Core.Logger.LogWarning(ex, "[SLAYER_Duel] Failed to stop Audio playback."); }
+        try
+        {
+            foreach (var player in Core.PlayerManager.GetAllValidPlayers())
+            {
+                if (player.IsFakeClient || !_addonSounds.TryGetValue(player.PlayerID, out var sound)
+                    || sound.SteamId != player.SteamID) continue;
+                using var message = Core.NetMessage.Create<CMsgSosStopSoundEvent>();
+                message.SoundeventGuid = unchecked((int)sound.Guid);
+                message.Recipients.AddRecipient(player.PlayerID);
+                message.Send();
+            }
+        }
+        catch (Exception ex) { Core.Logger.LogWarning(ex, "[SLAYER_Duel] Failed to stop addon playback."); }
+        finally { _addonSounds.Clear(); }
+    }
+
+    private void DisconnectVolumeApi()
+    {
+        try { _unregisterVolumeFeature?.Invoke(VolumeFeature); }
+        catch (Exception ex) { core.Logger.LogWarning(ex, "[SLAYER_Duel] Could not unregister Volume API feature."); }
+        _getEffectiveVolume = null;
+        _unregisterVolumeFeature = null;
+    }
+
     private static readonly Vector VectorZero = new Vector(0, 0, 0);
     private static readonly QAngle RotationZero = new QAngle(0, 0, 0);
     public (int, CBeam?) DrawLaserBetween(Vector startPos, Vector endPos, Color color, float life, float width)

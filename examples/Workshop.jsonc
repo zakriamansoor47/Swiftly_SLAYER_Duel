@@ -1,0 +1,8 @@
+{
+  "Main": {
+    "Duel_UseAudioPlugin": false,
+    "Duel_SoundEventFile": "soundevents/duel.vsndevts",
+    "Duel_DuelSoundPath": "duel.music",
+    "Duel_DuelSoundVolume": 1.0
+  }
+}

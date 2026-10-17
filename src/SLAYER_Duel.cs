@@ -40,6 +40,8 @@ public class SLAYER_DuelConfig
     public bool Duel_Beacon { get; set; } = true;
     public bool Duel_Teleport { get; set; } = true;
     public bool Duel_FreezePlayers { get; set; } = false;
+    public bool Duel_UseAudioPlugin { get; set; } = true;
+    public string Duel_SoundEventFile { get; set; } = "";
     public string Duel_DuelSoundPath { get; set; } = "";
     public float Duel_DuelSoundVolume { get; set; } = 1.0f;
     public string Duel_DatabaseConnection { get; set; } = "default"; // name from database.jsonc
@@ -70,7 +72,7 @@ public class DuelModeSettings
 [PluginMetadata
 (
     Id = "SLAYER_Duel", 
-    Version = "1.2", 
+    Version = "1.2.1",
     Name = "SLAYER_Duel", 
     Author = "SLAYER", 
     Description = "1vs1 Duel at the end of the round with different weapons"
@@ -113,18 +115,53 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
     Dictionary<IPlayer, (int, bool)> PlayerArmorBeforeDuel = new Dictionary<IPlayer, (int, bool)>();
 
     public static IAudioApi? _audioApi;
+    private const string VolumeFeature = "SLAYER_Duel";
+    private Func<long, string, float>? _getEffectiveVolume;
+    private Action<string>? _unregisterVolumeFeature;
+    private readonly Dictionary<int, (ulong SteamId, uint Guid)> _addonSounds = new();
     public override void UseSharedInterface(IInterfaceManager interfaceManager)
     {
-         if (!interfaceManager.HasSharedInterface("audio"))
+        DisconnectVolumeApi();
+        _audioApi = null;
+        try
         {
-            Core.Logger.LogWarning("[SLAYER_Duel] Audio shared interface not found. Install/enable the 'Audio' plugin.");
-            _audioApi = null;
-            return;
+            if (Config.Duel_UseAudioPlugin && interfaceManager.HasSharedInterface("audio"))
+                _audioApi = interfaceManager.GetSharedInterface<IAudioApi>("audio");
+        }
+        catch (Exception ex)
+        {
+            Core.Logger.LogError(ex, "[SLAYER_Duel] Audio API initialization failed.");
         }
 
-        var audioApi = interfaceManager.GetSharedInterface<IAudioApi>("audio");
-        _audioApi = audioApi;
+        // Resolve the optional contract only once. No reflection occurs during playback,
+        // and the plugin can start without Volume.API or Volume.Contract.dll installed.
+        if (interfaceManager.HasSharedInterface("Volume.Player.v1"))
+        {
+            try
+            {
+                var contract = Type.GetType("Volume.Contract.IPlayerVolumeAPI, Volume.Contract", throwOnError: true)!;
+                var getter = typeof(IInterfaceManager).GetMethod(nameof(IInterfaceManager.GetSharedInterface))!
+                    .MakeGenericMethod(contract);
+                var api = getter.Invoke(interfaceManager, new object[] { "Volume.Player.v1" })!;
+                var register = contract.GetMethod("RegisterFeature")!.CreateDelegate<Action<string, string>>(api);
+                var effective = contract.GetMethod("GetEffectiveVolume")!.CreateDelegate<Func<long, string, float>>(api);
+                var unregister = contract.GetMethod("UnregisterFeature")!.CreateDelegate<Action<string>>(api);
+                register(VolumeFeature, "Duel");
+                _getEffectiveVolume = effective;
+                _unregisterVolumeFeature = unregister;
+            }
+            catch (Exception ex)
+            {
+                Core.Logger.LogError(ex, "[SLAYER_Duel] Volume API initialization failed; using configured Duel volume.");
+            }
+        }
+
+        Core.Logger.LogInformation("[SLAYER_Duel] Playback mode: {Mode}. Volume API: {VolumeApi}",
+            _audioApi != null ? "Audio" : "Workshop addon", _getEffectiveVolume != null);
+        if (Config.Duel_UseAudioPlugin && _audioApi == null)
+            Core.Logger.LogWarning("[SLAYER_Duel] Audio plugin unavailable. Addon fallback requires valid sound event names and Duel_SoundEventFile.");
     }
+
     public override void Load(bool hotReload) 
     {
         // Ensure static Core is initialized before any usage.
@@ -162,9 +199,12 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
         // Admin Command
         Core.Command.RegisterCommand("duel_settings", DuelSettings);
 
+        Core.Event.OnPrecacheResource += OnPrecacheDuelSounds;
+
         // Listers
         Core.Event.OnMapLoad += (mapname) =>
         {
+            _addonSounds.Clear(); // Old sound GUIDs belong to the previous map.
             LoadPositionsFromFile();
             if(t_PrepDuel != null) t_PrepDuel.Cancel();
             if(t_DuelTimer != null) t_DuelTimer.Cancel();
@@ -240,6 +280,12 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
         };
 
         // Events
+        Core.GameEvent.HookPost<EventPlayerDisconnect>((@event) =>
+        {
+            var player = @event.UserIdPlayer;
+            if (player != null) _addonSounds.Remove(player.PlayerID);
+            return HookResult.Continue;
+        });
         Core.GameEvent.HookPost<EventPlayerConnectFull>((@event) =>
         {
             var player = @event.UserIdPlayer;
@@ -264,6 +310,7 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
         });
         Core.GameEvent.HookPost<EventRoundStart>((@event) =>
         {
+            StopDuelSounds();
             Duelist = new IPlayer[2];
             g_PrepDuel = false;
             g_DuelStarted = false;
@@ -284,6 +331,7 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
         });
         Core.GameEvent.HookPost<EventRoundEnd>((@event) =>
         {
+            StopDuelSounds();
             if(g_IsVoteStarted) 
             {
                 core.MenusAPI.CloseAllMenus();
@@ -562,10 +610,10 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
     {
         if(g_PrepDuel)return;
         g_PrepDuel = true;
+        PlayDuelMusic();
         foreach (var player in Core.PlayerManager.GetAllPlayers().Where(player => player != null && player.IsValid && player.Controller.TeamNum > 0))
         {
             
-            if(!player.IsFakeClient && Config.Duel_DuelSoundPath != "")PlayMP3SoundOnPlayer(player, Config.Duel_DuelSoundPath, Config.Duel_DuelSoundVolume); // Play Duel Sound to all players except Bots if any Given
             if(player.Controller.TeamNum > 1 && player.Pawn?.LifeState == (byte)LifeState_t.LIFE_ALIVE) // Check Players who are in any Team and alive (only two duelist will be alive)
             {
                 if(Config.Duel_Teleport)TeleportPlayer(player.Controller);
@@ -700,13 +748,8 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
         Random randomplayer = new Random();
         int killplayer = randomplayer.Next(0,2);
 
-        // Stop Duel Sound if any is given
-        if(_audioApi != null)
-        {
-            var controller = _audioApi.UseChannel("slayer_duel");
-            if(controller != null) controller.StopAll();
-        }
-        
+        StopDuelSounds();
+
         foreach (var player in Core.PlayerManager.GetAllPlayers().Where(player => player != null && player.IsValid && player.Controller.TeamNum > 0 && player.Pawn?.LifeState == (byte)LifeState_t.LIFE_ALIVE && g_DuelTime <= 0f))
         {
             if(Config.Duel_DrawPunish == 1) // Kill Both if timer ends
@@ -855,5 +898,16 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
     }
 
     public override void Unload()
-    {}
+    {
+        StopDuelSounds();
+        Core.Event.OnPrecacheResource -= OnPrecacheDuelSounds;
+        DisconnectVolumeApi();
+        _audioApi = null;
+        t_PrepDuel?.Cancel();
+        t_DuelTimer?.Cancel();
+        foreach (var timer in PlayerBeaconTimer.Values) timer?.Cancel();
+        PlayerBeaconTimer.Clear();
+        _provider?.Dispose();
+        _provider = null;
+    }
 } 
