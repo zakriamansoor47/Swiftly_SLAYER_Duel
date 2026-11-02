@@ -15,9 +15,19 @@ public partial class SLAYER_Duel : BasePlugin
         return Regex.Replace(text, "<.*?>", string.Empty).Trim();
     }
 
-    private void PlayerDuelSettingsMenu(IPlayer player)
+    private static ButtonComponent CreateMenuButton(string text, Func<MenuActionContext, ValueTask> onSelect)
     {
-        if (player == null || !player.IsValid || !Config.PluginEnabled) return;
+        return new ButtonComponent(CleanText(text), onSelect)
+        {
+            MaxWidth = 0,
+            Overflow = MenuTextOverflow.None
+        };
+    }
+
+    public IMenu BuildPlayerDuelSettingsMenu(IPlayer player)
+    {
+        var builder = Core.Menu.CreateMenu("slayer_duel.main")
+            .WithTitle(CleanText(Localizer["MenuSettings.Title"]));
 
         string selectedOption = "";
         if (PlayerOption != null && PlayerOption.ContainsKey(player))
@@ -27,14 +37,13 @@ public partial class SLAYER_Duel : BasePlugin
             else if (PlayerOption[player].Option == -1) selectedOption = CleanText(Localizer["PlayerMenu.Vote"]);
         }
 
-        var builder = Core.Menu.CreateMenu("slayer_duel.main")
-            .WithTitle(CleanText(Localizer["MenuSettings.Title"]));
+        builder.Add(new TextComponent($"{CleanText(Localizer["PlayerMenu.Selected"])}: {selectedOption}")
+        {
+            MaxWidth = 0,
+            Overflow = MenuTextOverflow.None
+        });
 
-        // 1. Jelenlegi állapot kijelzése
-        builder.Add(new TextComponent($"{CleanText(Localizer["PlayerMenu.Selected"])}: {selectedOption}"));
-
-        // 2. Szavazás kérése (Vote)
-        builder.Add(new ButtonComponent(CleanText(Localizer["PlayerMenu.Vote"]), ctx =>
+        builder.Add(CreateMenuButton(Localizer["PlayerMenu.Vote"], ctx =>
         {
             if (PlayerOption != null && PlayerOption.ContainsKey(ctx.Player))
             {
@@ -46,8 +55,7 @@ public partial class SLAYER_Duel : BasePlugin
             return ValueTask.CompletedTask;
         }));
 
-        // 3. Mindig elfogad (Accept)
-        builder.Add(new ButtonComponent(CleanText(Localizer["PlayerMenu.Accept"]), ctx =>
+        builder.Add(CreateMenuButton(Localizer["PlayerMenu.Accept"], ctx =>
         {
             if (PlayerOption != null && PlayerOption.ContainsKey(ctx.Player))
             {
@@ -59,8 +67,7 @@ public partial class SLAYER_Duel : BasePlugin
             return ValueTask.CompletedTask;
         }));
 
-        // 4. Mindig elutasít (Decline)
-        builder.Add(new ButtonComponent(CleanText(Localizer["PlayerMenu.Decline"]), ctx =>
+        builder.Add(CreateMenuButton(Localizer["PlayerMenu.Decline"], ctx =>
         {
             if (PlayerOption != null && PlayerOption.ContainsKey(ctx.Player))
             {
@@ -72,45 +79,51 @@ public partial class SLAYER_Duel : BasePlugin
             return ValueTask.CompletedTask;
         }));
 
-        // 5. Rang menüpont
-        builder.Add(new ButtonComponent(CleanText(Localizer["PlayerMenu.Rank"]), ctx =>
+        builder.Add(CreateMenuButton(Localizer["PlayerMenu.Rank"], ctx =>
         {
-            var parent = Core.Menu.CreateMenu("slayer_duel.main")
-                .WithTitle(CleanText(Localizer["MenuSettings.Title"]))
-                .Build();
+            var parent = BuildPlayerDuelSettingsMenu(ctx.Player);
             PlayerRankMenu(ctx.Player, parent);
             return ValueTask.CompletedTask;
         }));
 
-        builder.Build().Open(player);
+        return builder.Build();
+    }
+
+    private void PlayerDuelSettingsMenu(IPlayer player)
+    {
+        if (player == null || !player.IsValid || !Config.PluginEnabled) return;
+        BuildPlayerDuelSettingsMenu(player).Open(player);
+    }
+
+    public IMenu BuildPlayerRankMenu(IPlayer player, IMenu? parentMenu)
+    {
+        var stats = GetPlayerStats(player);
+        int played = (stats?.Wins ?? 0) + (stats?.Losses ?? 0);
+
+        var builder = Core.Menu.CreateMenu("slayer_duel.rank")
+            .WithTitle(CleanText(Localizer["PlayerMenu.RankTitle"]));
+
+        if (parentMenu != null)
+            builder.WithParent(parentMenu);
+
+        builder.Add(new TextComponent(CleanText(Localizer["PlayerMenu.Played", played])) { MaxWidth = 0, Overflow = MenuTextOverflow.None });
+        builder.Add(new TextComponent(CleanText(Localizer["PlayerMenu.Wins", stats?.Wins ?? 0])) { MaxWidth = 0, Overflow = MenuTextOverflow.None });
+        builder.Add(new TextComponent(CleanText(Localizer["PlayerMenu.Losses", stats?.Losses ?? 0])) { MaxWidth = 0, Overflow = MenuTextOverflow.None });
+
+        builder.Add(CreateMenuButton(Localizer["PlayerMenu.TopPlayers"], ctx =>
+        {
+            var current = BuildPlayerRankMenu(ctx.Player, parentMenu);
+            TopPlayersMenu(ctx.Player, current);
+            return ValueTask.CompletedTask;
+        }));
+
+        return builder.Build();
     }
 
     private void PlayerRankMenu(IPlayer player, IMenu parentMenu)
     {
         if (player == null || !player.IsValid || !Config.PluginEnabled) return;
-
-        var stats = GetPlayerStats(player);
-        int played = (stats?.Wins ?? 0) + (stats?.Losses ?? 0);
-
-        var builder = Core.Menu.CreateMenu("slayer_duel.rank")
-            .WithParent(parentMenu)
-            .WithTitle(CleanText(Localizer["PlayerMenu.RankTitle"]));
-
-        builder.Add(new TextComponent(CleanText(Localizer["PlayerMenu.Played", played])));
-        builder.Add(new TextComponent(CleanText(Localizer["PlayerMenu.Wins", stats?.Wins ?? 0])));
-        builder.Add(new TextComponent(CleanText(Localizer["PlayerMenu.Losses", stats?.Losses ?? 0])));
-
-        builder.Add(new ButtonComponent(CleanText(Localizer["PlayerMenu.TopPlayers"]), ctx =>
-        {
-            var parent = Core.Menu.CreateMenu("slayer_duel.rank")
-                .WithParent(parentMenu)
-                .WithTitle(CleanText(Localizer["PlayerMenu.RankTitle"]))
-                .Build();
-            TopPlayersMenu(ctx.Player, parent);
-            return ValueTask.CompletedTask;
-        }));
-
-        builder.Build().Open(player);
+        BuildPlayerRankMenu(player, parentMenu).Open(player);
     }
 
     private void TopPlayersMenu(IPlayer player, IMenu parentMenu)
@@ -141,7 +154,11 @@ public partial class SLAYER_Duel : BasePlugin
                     ctx.Player.SendChatAsync($"{Localizer["Chat.Stats.WinRate", $"{winRate:F2}%"]}");
                     ctx.Player.SendChatAsync($"{Localizer["Chat.Stats.HeaderFooter"]}");
                     return ValueTask.CompletedTask;
-                }));
+                })
+                {
+                    MaxWidth = 0,
+                    Overflow = MenuTextOverflow.None
+                });
 
                 rank++;
             }
@@ -157,7 +174,7 @@ public partial class SLAYER_Duel : BasePlugin
         var builder = Core.Menu.CreateMenu("slayer_duel.admin_settings")
             .WithTitle(CleanText(Localizer["MenuSettings.Title"]));
 
-        builder.Add(new ButtonComponent(CleanText(Localizer["MenuSettings.TeleportSetT"]), ctx =>
+        builder.Add(CreateMenuButton(Localizer["MenuSettings.TeleportSetT"], ctx =>
         {
             if (Duel_Positions.ContainsKey(Core.Engine.GlobalVars.MapName))
             {
@@ -174,7 +191,7 @@ public partial class SLAYER_Duel : BasePlugin
             return ValueTask.CompletedTask;
         }));
 
-        builder.Add(new ButtonComponent(CleanText(Localizer["MenuSettings.TeleportSetCT"]), ctx =>
+        builder.Add(CreateMenuButton(Localizer["MenuSettings.TeleportSetCT"], ctx =>
         {
             if (Duel_Positions.ContainsKey(Core.Engine.GlobalVars.MapName))
             {
@@ -191,7 +208,7 @@ public partial class SLAYER_Duel : BasePlugin
             return ValueTask.CompletedTask;
         }));
 
-        builder.Add(new ButtonComponent(CleanText(Localizer["MenuSettings.TeleportDelete"]), ctx =>
+        builder.Add(CreateMenuButton(Localizer["MenuSettings.TeleportDelete"], ctx =>
         {
             if (Duel_Positions != null && Duel_Positions.ContainsKey(Core.Engine.GlobalVars.MapName))
             {
@@ -212,14 +229,14 @@ public partial class SLAYER_Duel : BasePlugin
         var builder = Core.Menu.CreateMenu("slayer_duel.vote")
             .WithTitle(CleanText(Localizer["Menu.Title"]));
 
-        builder.Add(new ButtonComponent(CleanText(Localizer["Menu.Accept"]), ctx =>
+        builder.Add(CreateMenuButton(Localizer["Menu.Accept"], ctx =>
         {
             AcceptDuelVoteOption(ctx.Player);
             Core.Menu.CloseFor(ctx.Player);
             return ValueTask.CompletedTask;
         }));
 
-        builder.Add(new ButtonComponent(CleanText(Localizer["Menu.Decline"]), ctx =>
+        builder.Add(CreateMenuButton(Localizer["Menu.Decline"], ctx =>
         {
             DeclineDuelVoteOption(ctx.Player);
             Core.Menu.CloseFor(ctx.Player);
