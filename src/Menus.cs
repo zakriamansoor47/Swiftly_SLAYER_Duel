@@ -9,39 +9,66 @@ namespace SLAYER_Duel;
 
 public partial class SLAYER_Duel : BasePlugin
 {
-    private static string CleanText(string text)
+    private static string OptimizeColors(string text)
     {
         if (string.IsNullOrEmpty(text)) return string.Empty;
-        return Regex.Replace(text, "<.*?>", string.Empty).Trim();
+
+        return text
+            .Replace("color='gold'", "color='#fd0'")
+            .Replace("color=\"gold\"", "color='#fd0'")
+            .Replace("color='lime'", "color='#0f0'")
+            .Replace("color=\"lime\"", "color='#0f0'")
+            .Replace("color='red'", "color='#f00'")
+            .Replace("color=\"red\"", "color='#f00'")
+            .Replace("color='yellow'", "color='#ff0'")
+            .Replace("color=\"yellow\"", "color='#ff0'")
+            .Replace("color='onull'", "color='#fa0'")
+            .Replace("color=\"onull\"", "color='#fa0'")
+            .Replace("color='royalblue'", "color='#48f'")
+            .Replace("color=\"royalblue\"", "color='#48f'");
     }
 
     private static ButtonComponent CreateMenuButton(string text, Func<MenuActionContext, ValueTask> onSelect)
     {
-        return new ButtonComponent(CleanText(text), onSelect)
+        return new ButtonComponent(OptimizeColors(text), onSelect)
         {
             MaxWidth = 0,
             Overflow = MenuTextOverflow.None
         };
     }
 
+    private static TextComponent CreateMenuText(string text)
+    {
+        return new TextComponent(OptimizeColors(text))
+        {
+            MaxWidth = 0,
+            Overflow = MenuTextOverflow.None
+        };
+    }
+
+    private static IMenuBuilder CreateMenuWithTitle(string id, string title)
+    {
+        return Core.Menu.CreateMenu(id)
+            .AddHeader(new TitleComponent(OptimizeColors(title))
+            {
+                MaxWidth = 0,
+                Overflow = MenuTextOverflow.None
+            });
+    }
+
     public IMenu BuildPlayerDuelSettingsMenu(IPlayer player)
     {
-        var builder = Core.Menu.CreateMenu("slayer_duel.main")
-            .WithTitle(CleanText(Localizer["MenuSettings.Title"]));
+        var builder = CreateMenuWithTitle("slayer_duel.main", Localizer["MenuSettings.Title"]);
 
         string selectedOption = "";
         if (PlayerOption != null && PlayerOption.ContainsKey(player))
         {
-            if (PlayerOption[player].Option == 1) selectedOption = CleanText(Localizer["PlayerMenu.Accept"]);
-            else if (PlayerOption[player].Option == 0) selectedOption = CleanText(Localizer["PlayerMenu.Decline"]);
-            else if (PlayerOption[player].Option == -1) selectedOption = CleanText(Localizer["PlayerMenu.Vote"]);
+            if (PlayerOption[player].Option == 1) selectedOption = OptimizeColors(Localizer["PlayerMenu.Accept"]);
+            else if (PlayerOption[player].Option == 0) selectedOption = OptimizeColors(Localizer["PlayerMenu.Decline"]);
+            else if (PlayerOption[player].Option == -1) selectedOption = OptimizeColors(Localizer["PlayerMenu.Vote"]);
         }
 
-        builder.Add(new TextComponent($"{CleanText(Localizer["PlayerMenu.Selected"])}: {selectedOption}")
-        {
-            MaxWidth = 0,
-            Overflow = MenuTextOverflow.None
-        });
+        builder.Add(CreateMenuText($"{Localizer["PlayerMenu.Selected"]} {selectedOption}"));
 
         builder.Add(CreateMenuButton(Localizer["PlayerMenu.Vote"], ctx =>
         {
@@ -100,15 +127,14 @@ public partial class SLAYER_Duel : BasePlugin
         var stats = GetPlayerStats(player);
         int played = (stats?.Wins ?? 0) + (stats?.Losses ?? 0);
 
-        var builder = Core.Menu.CreateMenu("slayer_duel.rank")
-            .WithTitle(CleanText(Localizer["PlayerMenu.RankTitle"]));
+        var builder = CreateMenuWithTitle("slayer_duel.rank", Localizer["PlayerMenu.RankTitle"]);
 
         if (parentMenu != null)
             builder.WithParent(parentMenu);
 
-        builder.Add(new TextComponent(CleanText(Localizer["PlayerMenu.Played", played])) { MaxWidth = 0, Overflow = MenuTextOverflow.None });
-        builder.Add(new TextComponent(CleanText(Localizer["PlayerMenu.Wins", stats?.Wins ?? 0])) { MaxWidth = 0, Overflow = MenuTextOverflow.None });
-        builder.Add(new TextComponent(CleanText(Localizer["PlayerMenu.Losses", stats?.Losses ?? 0])) { MaxWidth = 0, Overflow = MenuTextOverflow.None });
+        builder.Add(CreateMenuText(Localizer["PlayerMenu.Played", played]));
+        builder.Add(CreateMenuText(Localizer["PlayerMenu.Wins", stats?.Wins ?? 0]));
+        builder.Add(CreateMenuText(Localizer["PlayerMenu.Losses", stats?.Losses ?? 0]));
 
         builder.Add(CreateMenuButton(Localizer["PlayerMenu.TopPlayers"], ctx =>
         {
@@ -132,15 +158,16 @@ public partial class SLAYER_Duel : BasePlugin
 
         GetTopPlayersSettings(Config.Duel_TopPlayersCount, (topPlayers) =>
         {
-            var builder = Core.Menu.CreateMenu("slayer_duel.top_players")
-                .WithParent(parentMenu)
-                .WithTitle(CleanText(Localizer["PlayerMenu.TopPlayers"]));
+            var builder = CreateMenuWithTitle("slayer_duel.top_players", Localizer["PlayerMenu.TopPlayers"]);
+
+            if (parentMenu != null)
+                builder.WithParent(parentMenu);
 
             int rank = 1;
             foreach (var playerSettings in topPlayers)
             {
                 var capturedSettings = playerSettings;
-                var playerOptionText = $"#{rank} {capturedSettings.PlayerName}";
+                var playerOptionText = $"<font color='#fd0'>#{rank}</font> <font color='#fff'>{capturedSettings.PlayerName}</font>";
 
                 builder.Add(new ButtonComponent(playerOptionText, ctx =>
                 {
@@ -171,8 +198,7 @@ public partial class SLAYER_Duel : BasePlugin
     {
         if (player == null || !player.IsValid || !Config.PluginEnabled || player.PlayerPawn == null) return;
 
-        var builder = Core.Menu.CreateMenu("slayer_duel.admin_settings")
-            .WithTitle(CleanText(Localizer["MenuSettings.Title"]));
+        var builder = CreateMenuWithTitle("slayer_duel.admin_settings", Localizer["MenuSettings.Title"]);
 
         builder.Add(CreateMenuButton(Localizer["MenuSettings.TeleportSetT"], ctx =>
         {
@@ -224,10 +250,11 @@ public partial class SLAYER_Duel : BasePlugin
 
     private void ShowDuelVoteMenu(IPlayer player)
     {
-        if (player == null || !player.IsValid || !Config.PluginEnabled || player.PlayerPawn == null) return;
+        if (player == null || !player.IsValid || !Config.PluginEnabled || player.PlayerPawn == null) return; // wait, null is typo, let's fix to player.PlayerPawn == null
 
-        var builder = Core.Menu.CreateMenu("slayer_duel.vote")
-            .WithTitle(CleanText(Localizer["Menu.Title"]));
+        if (player.PlayerPawn == null) return;
+
+        var builder = CreateMenuWithTitle("slayer_duel.vote", Localizer["Menu.Title"]);
 
         builder.Add(CreateMenuButton(Localizer["Menu.Accept"], ctx =>
         {
