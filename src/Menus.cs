@@ -1,281 +1,275 @@
 using SwiftlyS2.Shared.Players;
 using SwiftlyS2.Shared.Plugins;
-using SwiftlyS2.Shared.Menus;
-using SwiftlyS2.Core.Menus.OptionsBase;
+using SwiftlyS2.Shared.Menu;
+using SwiftlyS2.Shared.Menu.Components;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 
 namespace SLAYER_Duel;
 
 public partial class SLAYER_Duel : BasePlugin
 {
+    private static string OptimizeColors(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+
+        return text
+            .Replace("color='gold'", "color='#fd0'")
+            .Replace("color=\"gold\"", "color='#fd0'")
+            .Replace("color='lime'", "color='#0f0'")
+            .Replace("color=\"lime\"", "color='#0f0'")
+            .Replace("color='red'", "color='#f00'")
+            .Replace("color=\"red\"", "color='#f00'")
+            .Replace("color='yellow'", "color='#ff0'")
+            .Replace("color=\"yellow\"", "color='#ff0'")
+            .Replace("color='onull'", "color='#fa0'")
+            .Replace("color=\"onull\"", "color='#fa0'")
+            .Replace("color='royalblue'", "color='#48f'")
+            .Replace("color=\"royalblue\"", "color='#48f'");
+    }
+
+    private static ButtonComponent CreateMenuButton(string text, Func<MenuActionContext, ValueTask> onSelect)
+    {
+        return new ButtonComponent(OptimizeColors(text), onSelect)
+        {
+            MaxWidth = 0,
+            Overflow = MenuTextOverflow.None
+        };
+    }
+
+    private static TextComponent CreateMenuText(string text)
+    {
+        return new TextComponent(OptimizeColors(text))
+        {
+            MaxWidth = 0,
+            Overflow = MenuTextOverflow.None
+        };
+    }
+
+    private static IMenuBuilder CreateMenuWithTitle(string id, string title)
+    {
+        return Core.Menu.CreateMenu(id)
+            .AddHeader(new TitleComponent(OptimizeColors(title))
+            {
+                MaxWidth = 0,
+                Overflow = MenuTextOverflow.None
+            });
+    }
+
+    public IMenu BuildPlayerDuelSettingsMenu(IPlayer player)
+    {
+        var builder = CreateMenuWithTitle("slayer_duel.main", Localizer["MenuSettings.Title"]);
+
+        string selectedOption = "";
+        if (PlayerOption != null && PlayerOption.ContainsKey(player))
+        {
+            if (PlayerOption[player].Option == 1) selectedOption = OptimizeColors(Localizer["PlayerMenu.Accept"]);
+            else if (PlayerOption[player].Option == 0) selectedOption = OptimizeColors(Localizer["PlayerMenu.Decline"]);
+            else if (PlayerOption[player].Option == -1) selectedOption = OptimizeColors(Localizer["PlayerMenu.Vote"]);
+        }
+
+        builder.Add(CreateMenuText($"{Localizer["PlayerMenu.Selected"]} {selectedOption}"));
+
+        builder.Add(CreateMenuButton(Localizer["PlayerMenu.Vote"], ctx =>
+        {
+            if (PlayerOption != null && PlayerOption.ContainsKey(ctx.Player))
+            {
+                PlayerOption[ctx.Player].Option = -1;
+            }
+            ctx.Player.SendChatAsync($"{Localizer["Chat.Prefix"]}  {Localizer["Chat.DuelSettings.Vote"]}");
+            SetPlayerDuelOption(ctx.Player, -1);
+            PlayerDuelSettingsMenu(ctx.Player);
+            return ValueTask.CompletedTask;
+        }));
+
+        builder.Add(CreateMenuButton(Localizer["PlayerMenu.Accept"], ctx =>
+        {
+            if (PlayerOption != null && PlayerOption.ContainsKey(ctx.Player))
+            {
+                PlayerOption[ctx.Player].Option = 1;
+            }
+            ctx.Player.SendChatAsync($"{Localizer["Chat.Prefix"]}  {Localizer["Chat.DuelSettings.Accept"]}");
+            SetPlayerDuelOption(ctx.Player, 1);
+            PlayerDuelSettingsMenu(ctx.Player);
+            return ValueTask.CompletedTask;
+        }));
+
+        builder.Add(CreateMenuButton(Localizer["PlayerMenu.Decline"], ctx =>
+        {
+            if (PlayerOption != null && PlayerOption.ContainsKey(ctx.Player))
+            {
+                PlayerOption[ctx.Player].Option = 0;
+            }
+            ctx.Player.SendChatAsync($"{Localizer["Chat.Prefix"]}  {Localizer["Chat.DuelSettings.Decline"]}");
+            SetPlayerDuelOption(ctx.Player, 0);
+            PlayerDuelSettingsMenu(ctx.Player);
+            return ValueTask.CompletedTask;
+        }));
+
+        builder.Add(CreateMenuButton(Localizer["PlayerMenu.Rank"], ctx =>
+        {
+            var parent = BuildPlayerDuelSettingsMenu(ctx.Player);
+            PlayerRankMenu(ctx.Player, parent);
+            return ValueTask.CompletedTask;
+        }));
+
+        return builder.Build();
+    }
+
     private void PlayerDuelSettingsMenu(IPlayer player)
     {
         if (player == null || !player.IsValid || !Config.PluginEnabled) return;
-
-        // Create menu
-        var settingsMenu = Core.MenusAPI.CreateBuilder().EnableExit().EnableSound().SetPlayerFrozen(false)
-        .Design.SetMenuTitle($"{Localizer["MenuSettings.Title"]}")
-        .Design.SetGlobalScrollStyle(MenuOptionScrollStyle.CenterFixed)
-        .Build();
-        
-        // Player Duel Rank
-        var RankOption = new ButtonMenuOption($"{Localizer["PlayerMenu.Rank"]}");
-        RankOption.Click += (sender, args) =>
-        {
-            PlayerRankMenu(args.Player, settingsMenu);
-            return ValueTask.CompletedTask;
-        };
-        
-
-        // Change player settings
-        var SettingsOption = new ButtonMenuOption($"{Localizer["PlayerMenu.Settings"]}");
-        SettingsOption.Click += (sender, args) =>
-        {
-            PlayerSettingsMenu(args.Player, settingsMenu);
-            return ValueTask.CompletedTask;
-        };
-
-        // Add options to menu
-        settingsMenu.AddOption(RankOption);
-        settingsMenu.AddOption(SettingsOption);
-
-        Core.MenusAPI.OpenMenuForPlayer(player, settingsMenu);
+        BuildPlayerDuelSettingsMenu(player).Open(player);
     }
-    private void PlayerRankMenu(IPlayer player, IMenuAPI parentMenu)
-    {
-        if (player == null || !player.IsValid || !Config.PluginEnabled) return;
 
+    public IMenu BuildPlayerRankMenu(IPlayer player, IMenu? parentMenu)
+    {
         var stats = GetPlayerStats(player);
         int played = (stats?.Wins ?? 0) + (stats?.Losses ?? 0);
 
-        // Create menu
-        var settingsMenu = Core.MenusAPI.CreateBuilder().EnableExit().EnableSound().SetPlayerFrozen(false)
-        .Design.SetMenuTitle($"{Localizer["PlayerMenu.RankTitle"]}")
-        .Design.SetGlobalScrollStyle(MenuOptionScrollStyle.CenterFixed)
-        .BindToParent(parentMenu)
-        .Build();
+        var builder = CreateMenuWithTitle("slayer_duel.rank", Localizer["PlayerMenu.RankTitle"]);
 
-        var PlayedOption = new ButtonMenuOption($"{Localizer["PlayerMenu.Played", played]}");
-        PlayedOption.Enabled = false;
-        settingsMenu.AddOption(PlayedOption);
+        if (parentMenu != null)
+            builder.WithParent(parentMenu);
 
-        var WinsOption = new ButtonMenuOption($"{Localizer["PlayerMenu.Wins", stats?.Wins ?? 0]}");
-        WinsOption.Enabled = false;
-        settingsMenu.AddOption(WinsOption);
+        builder.Add(CreateMenuText(Localizer["PlayerMenu.Played", played]));
+        builder.Add(CreateMenuText(Localizer["PlayerMenu.Wins", stats?.Wins ?? 0]));
+        builder.Add(CreateMenuText(Localizer["PlayerMenu.Losses", stats?.Losses ?? 0]));
 
-        var LossesOption = new ButtonMenuOption($"{Localizer["PlayerMenu.Losses", stats?.Losses ?? 0]}");
-        LossesOption.Enabled = false;
-        settingsMenu.AddOption(LossesOption);
-
-        var TopPlayersOption = new ButtonMenuOption($"{Localizer["PlayerMenu.TopPlayers"]}");
-        TopPlayersOption.Click += (sender, args) =>
+        builder.Add(CreateMenuButton(Localizer["PlayerMenu.TopPlayers"], ctx =>
         {
-            TopPlayersMenu(args.Player, settingsMenu);
+            var current = BuildPlayerRankMenu(ctx.Player, parentMenu);
+            TopPlayersMenu(ctx.Player, current);
             return ValueTask.CompletedTask;
-        };
-        settingsMenu.AddOption(TopPlayersOption);
+        }));
 
-        Core.MenusAPI.OpenMenuForPlayer(player, settingsMenu);
+        return builder.Build();
     }
 
-    private void TopPlayersMenu(IPlayer player, IMenuAPI parentMenu)
+    private void PlayerRankMenu(IPlayer player, IMenu parentMenu)
     {
         if (player == null || !player.IsValid || !Config.PluginEnabled) return;
+        BuildPlayerRankMenu(player, parentMenu).Open(player);
+    }
 
-        // Create menu
-        var settingsMenu = Core.MenusAPI.CreateBuilder().EnableExit().EnableSound().SetPlayerFrozen(false)
-        .Design.SetMenuTitle($"<font color='lime'>{Localizer["PlayerMenu.TopPlayers"]}</font>")
-        .Design.SetGlobalScrollStyle(MenuOptionScrollStyle.CenterFixed)
-        .BindToParent(parentMenu)
-        .Build();
+    private void TopPlayersMenu(IPlayer player, IMenu parentMenu)
+    {
+        if (player == null || !player.IsValid || !Config.PluginEnabled) return;
 
         GetTopPlayersSettings(Config.Duel_TopPlayersCount, (topPlayers) =>
         {
+            var builder = CreateMenuWithTitle("slayer_duel.top_players", Localizer["PlayerMenu.TopPlayers"]);
+
+            if (parentMenu != null)
+                builder.WithParent(parentMenu);
+
             int rank = 1;
             foreach (var playerSettings in topPlayers)
             {
-                // Player rank and name
-                var playerOption = new ButtonMenuOption($"<font color='yellow'>#{rank}</font> <font color='white'>{playerSettings.PlayerName}</font>");
-                playerOption.Click += (sender, args) =>
+                var capturedSettings = playerSettings;
+                var playerOptionText = $"<font color='#fd0'>#{rank}</font> <font color='#fff'>{capturedSettings.PlayerName}</font>";
+
+                builder.Add(new ButtonComponent(playerOptionText, ctx =>
                 {
-                    // Show player stats for the selected player (using playerSettings from the loop)
-                    int totalPlayed = playerSettings.Wins + playerSettings.Losses;
-                    double winRate = totalPlayed > 0 ? (double)playerSettings.Wins / totalPlayed * 100 : 0;
-                    args.Player.SendChatAsync($"{Localizer["Chat.Stats.HeaderFooter"]}");
-                    args.Player.SendChatAsync($"{Localizer["Chat.Stats.Name", playerSettings.PlayerName]}");
-                    args.Player.SendChatAsync($"{Localizer["Chat.Stats.Played", totalPlayed]}");
-                    args.Player.SendChatAsync($"{Localizer["Chat.Stats.Wins", playerSettings.Wins]}");
-                    args.Player.SendChatAsync($"{Localizer["Chat.Stats.Losses", playerSettings.Losses]}");
-                    args.Player.SendChatAsync($"{Localizer["Chat.Stats.WinRate", $"{winRate:F2}%"]}");
-                    args.Player.SendChatAsync($"{Localizer["Chat.Stats.HeaderFooter"]}");
+                    int totalPlayed = capturedSettings.Wins + capturedSettings.Losses;
+                    double winRate = totalPlayed > 0 ? (double)capturedSettings.Wins / totalPlayed * 100 : 0;
+                    ctx.Player.SendChatAsync($"{Localizer["Chat.Stats.HeaderFooter"]}");
+                    ctx.Player.SendChatAsync($"{Localizer["Chat.Stats.Name", capturedSettings.PlayerName]}");
+                    ctx.Player.SendChatAsync($"{Localizer["Chat.Stats.Played", totalPlayed]}");
+                    ctx.Player.SendChatAsync($"{Localizer["Chat.Stats.Wins", capturedSettings.Wins]}");
+                    ctx.Player.SendChatAsync($"{Localizer["Chat.Stats.Losses", capturedSettings.Losses]}");
+                    ctx.Player.SendChatAsync($"{Localizer["Chat.Stats.WinRate", $"{winRate:F2}%"]}");
+                    ctx.Player.SendChatAsync($"{Localizer["Chat.Stats.HeaderFooter"]}");
                     return ValueTask.CompletedTask;
-                };
-                settingsMenu.AddOption(playerOption);
+                })
+                {
+                    MaxWidth = 0,
+                    Overflow = MenuTextOverflow.None
+                });
 
                 rank++;
             }
-            Core.MenusAPI.OpenMenuForPlayer(player, settingsMenu);
+
+            builder.Build().Open(player);
         });
-
-        
     }
-    private void PlayerSettingsMenu(IPlayer player, IMenuAPI parentMenu)
-    {
-        if (player == null || !player.IsValid || !Config.PluginEnabled) return;
 
-        string SelectedOption = "";
-        if(PlayerOption?.ContainsKey(player) == true && PlayerOption[player].Option == 1){SelectedOption = $"{Localizer["PlayerMenu.Accept"]}";}
-        if(PlayerOption?.ContainsKey(player) == true && PlayerOption[player].Option == 0){SelectedOption = $"{Localizer["PlayerMenu.Decline"]}";}
-        if(PlayerOption?.ContainsKey(player) == true && PlayerOption[player].Option == -1){SelectedOption = $"{Localizer["PlayerMenu.Vote"]}";}
-
-        // Create menu
-        var settingsMenu = Core.MenusAPI.CreateBuilder().EnableExit().EnableSound().SetPlayerFrozen(false)
-        .Design.SetMenuTitle($"{Localizer["MenuSettings.Title"]}")
-        .Design.SetGlobalScrollStyle(MenuOptionScrollStyle.CenterFixed)
-        .BindToParent(parentMenu)
-        .Build();
-
-        // Show current vote option
-        var currentOption = new ButtonMenuOption($"{Localizer["PlayerMenu.Selected"]}: {SelectedOption}");
-        currentOption.Enabled = false;
-        settingsMenu.AddOption(currentOption);
-
-        // Ask for vote
-        var voteOption = new ButtonMenuOption($"{Localizer["PlayerMenu.Vote"]}");
-        voteOption.Click += (sender, args) =>
-        {
-            if(PlayerOption?.ContainsKey(player) == true) PlayerOption[player].Option = -1;
-            player.SendChatAsync($"{Localizer["Chat.Prefix"]}  {Localizer["Chat.DuelSettings.Vote"]}");
-            currentOption.Text = $"{Localizer["PlayerMenu.Selected"]}: {Localizer["PlayerMenu.Vote"]}";
-            SetPlayerDuelOption(player, -1);
-            return ValueTask.CompletedTask;
-        };
-        settingsMenu.AddOption(voteOption);
-
-        // always Accept
-        var acceptOption = new ButtonMenuOption($"{Localizer["PlayerMenu.Accept"]}");
-        acceptOption.Click += (sender, args) =>
-        {
-            if(PlayerOption?.ContainsKey(player) == true) PlayerOption[player].Option = 1;
-            player.SendChatAsync($"{Localizer["Chat.Prefix"]}  {Localizer["Chat.DuelSettings.Accept"]}");
-            currentOption.Text = $"{Localizer["PlayerMenu.Selected"]}: {Localizer["PlayerMenu.Accept"]}";
-            SetPlayerDuelOption(player, 1);
-            return ValueTask.CompletedTask;
-        };
-        settingsMenu.AddOption(acceptOption);
-
-        // always Reject
-        var declineOption = new ButtonMenuOption($"{Localizer["PlayerMenu.Decline"]}");
-        declineOption.Click += (sender, args) =>
-        {
-            if(PlayerOption?.ContainsKey(player) == true) PlayerOption[player].Option = 0;
-            player.SendChatAsync($"{Localizer["Chat.Prefix"]}  {Localizer["Chat.DuelSettings.Decline"]}");
-            currentOption.Text = $"{Localizer["PlayerMenu.Selected"]}: {Localizer["PlayerMenu.Decline"]}";
-            SetPlayerDuelOption(player, 0);
-            return ValueTask.CompletedTask;
-        };
-        settingsMenu.AddOption(declineOption);
-
-        Core.MenusAPI.OpenMenuForPlayer(player, settingsMenu);
-    }
     private void DuelSettingsMenu(IPlayer player)
     {
         if (player == null || !player.IsValid || !Config.PluginEnabled || player.PlayerPawn == null) return;
 
-        // Create menu
-        var settingsMenu = Core.MenusAPI.CreateBuilder().EnableExit().EnableSound().SetPlayerFrozen(false)
-        .Design.SetMenuTitle($"{Localizer["MenuSettings.Title"]}")
-        .Design.SetGlobalScrollStyle(MenuOptionScrollStyle.CenterFixed)
-        .Build();
+        var builder = CreateMenuWithTitle("slayer_duel.admin_settings", Localizer["MenuSettings.Title"]);
 
-        // Set T Position
-        var TeleportSetT = new ButtonMenuOption($"{Localizer["MenuSettings.TeleportSetT"]}");
-        TeleportSetT.Click += (sender, args) =>
+        builder.Add(CreateMenuButton(Localizer["MenuSettings.TeleportSetT"], ctx =>
         {
-            if (Duel_Positions.ContainsKey(Core.Engine.GlobalVars.MapName)) // Check If Map already exist in JSON file
+            if (Duel_Positions.ContainsKey(Core.Engine.GlobalVars.MapName))
             {
-                Dictionary<string, string> MapData = Duel_Positions[Core.Engine.GlobalVars.MapName]; // Get Map Settings
-                MapData["T_Pos"] = $"{player.PlayerPawn.AbsOrigin!.Value.X} {player.PlayerPawn.AbsOrigin!.Value.Y} {player.PlayerPawn.AbsOrigin!.Value.Z};{player.PlayerPawn.AbsRotation!.Value.Pitch} {player.PlayerPawn.AbsRotation!.Value.Yaw} {player.PlayerPawn.AbsRotation!.Value.Roll}"; // Edit t_pos value
+                Dictionary<string, string> mapData = Duel_Positions[Core.Engine.GlobalVars.MapName];
+                mapData["T_Pos"] = $"{player.PlayerPawn.AbsOrigin!.Value.X} {player.PlayerPawn.AbsOrigin!.Value.Y} {player.PlayerPawn.AbsOrigin!.Value.Z};{player.PlayerPawn.AbsRotation!.Value.Pitch} {player.PlayerPawn.AbsRotation!.Value.Yaw} {player.PlayerPawn.AbsRotation!.Value.Roll}";
                 File.WriteAllText(GetMapTeleportPositionConfigPath(), JsonSerializer.Serialize(Duel_Positions));
             }
-            else // If Map not found in JSON file
+            else
             {
-                // Save/add this in Global Variable
-                Duel_Positions.Add(Core.Engine.GlobalVars.MapName, new Dictionary<string, string>{{"T_Pos", $"{player.PlayerPawn.AbsOrigin!.Value.X} {player.PlayerPawn.AbsOrigin!.Value.Y} {player.PlayerPawn.AbsOrigin!.Value.Z};{player.PlayerPawn.AbsRotation!.Value.Pitch} {player.PlayerPawn.AbsRotation!.Value.Yaw} {player.PlayerPawn.AbsRotation!.Value.Roll}"} , {"CT_Pos", ""}});
-                File.WriteAllText(GetMapTeleportPositionConfigPath(), JsonSerializer.Serialize(Duel_Positions)); // Saving Position in File
+                Duel_Positions.Add(Core.Engine.GlobalVars.MapName, new Dictionary<string, string> { { "T_Pos", $"{player.PlayerPawn.AbsOrigin!.Value.X} {player.PlayerPawn.AbsOrigin!.Value.Y} {player.PlayerPawn.AbsOrigin!.Value.Z};{player.PlayerPawn.AbsRotation!.Value.Pitch} {player.PlayerPawn.AbsRotation!.Value.Yaw} {player.PlayerPawn.AbsRotation!.Value.Roll}" }, { "CT_Pos", "" } });
+                File.WriteAllText(GetMapTeleportPositionConfigPath(), JsonSerializer.Serialize(Duel_Positions));
             }
             player.SendChatAsync($"{Localizer["Chat.Prefix"]}  {Localizer["Chat.DuelSettings.TeleportSetT", $"{player.PlayerPawn.AbsOrigin!.Value.X} {player.PlayerPawn.AbsOrigin!.Value.Y} {player.PlayerPawn.AbsOrigin!.Value.Z}"]}");
             return ValueTask.CompletedTask;
-        };
-        settingsMenu.AddOption(TeleportSetT);
+        }));
 
-        // Set CT Position
-        var TeleportSetCT = new ButtonMenuOption($"{Localizer["MenuSettings.TeleportSetCT"]}");
-        TeleportSetCT.Click += (sender, args) =>
+        builder.Add(CreateMenuButton(Localizer["MenuSettings.TeleportSetCT"], ctx =>
         {
-            if (Duel_Positions.ContainsKey(Core.Engine.GlobalVars.MapName)) // Check If Map already exist in JSON file
+            if (Duel_Positions.ContainsKey(Core.Engine.GlobalVars.MapName))
             {
-                Dictionary<string, string> MapData = Duel_Positions[Core.Engine.GlobalVars.MapName]; // Get Map Settings
-                MapData["CT_Pos"] = $"{player.PlayerPawn.AbsOrigin!.Value.X} {player.PlayerPawn.AbsOrigin!.Value.Y} {player.PlayerPawn.AbsOrigin!.Value.Z};{player.PlayerPawn.AbsRotation!.Value.Pitch} {player.PlayerPawn.AbsRotation!.Value.Yaw} {player.PlayerPawn.AbsRotation!.Value.Roll}"; // Edit ct_pos value
+                Dictionary<string, string> mapData = Duel_Positions[Core.Engine.GlobalVars.MapName];
+                mapData["CT_Pos"] = $"{player.PlayerPawn.AbsOrigin!.Value.X} {player.PlayerPawn.AbsOrigin!.Value.Y} {player.PlayerPawn.AbsOrigin!.Value.Z};{player.PlayerPawn.AbsRotation!.Value.Pitch} {player.PlayerPawn.AbsRotation!.Value.Yaw} {player.PlayerPawn.AbsRotation!.Value.Roll}";
                 File.WriteAllText(GetMapTeleportPositionConfigPath(), JsonSerializer.Serialize(Duel_Positions));
             }
-            else // If Map not found in JSON file
+            else
             {
-                // Save/add this in Global Variable
-                Duel_Positions.Add(Core.Engine.GlobalVars.MapName, new Dictionary<string, string>{{"T_Pos", ""}, {"CT_Pos", $"{player.PlayerPawn.AbsOrigin!.Value.X} {player.PlayerPawn.AbsOrigin!.Value.Y} {player.PlayerPawn.AbsOrigin!.Value.Z};{player.PlayerPawn.AbsRotation!.Value.Pitch} {player.PlayerPawn.AbsRotation!.Value.Yaw} {player.PlayerPawn.AbsRotation!.Value.Roll}"}});
-                File.WriteAllText(GetMapTeleportPositionConfigPath(), JsonSerializer.Serialize(Duel_Positions)); // Saving Position in File
+                Duel_Positions.Add(Core.Engine.GlobalVars.MapName, new Dictionary<string, string> { { "T_Pos", "" }, { "CT_Pos", $"{player.PlayerPawn.AbsOrigin!.Value.X} {player.PlayerPawn.AbsOrigin!.Value.Y} {player.PlayerPawn.AbsOrigin!.Value.Z};{player.PlayerPawn.AbsRotation!.Value.Pitch} {player.PlayerPawn.AbsRotation!.Value.Yaw} {player.PlayerPawn.AbsRotation!.Value.Roll}" } });
+                File.WriteAllText(GetMapTeleportPositionConfigPath(), JsonSerializer.Serialize(Duel_Positions));
             }
             player.SendChatAsync($"{Localizer["Chat.Prefix"]} {Localizer["Chat.DuelSettings.TeleportSetCT", $"{player.PlayerPawn.AbsOrigin!.Value.X} {player.PlayerPawn.AbsOrigin!.Value.Y} {player.PlayerPawn.AbsOrigin!.Value.Z}"]}");
             return ValueTask.CompletedTask;
-        };
-        settingsMenu.AddOption(TeleportSetCT);
+        }));
 
-        // Delete Teleport Positions
-        var TeleportDelete = new ButtonMenuOption($"{Localizer["MenuSettings.TeleportDelete"]}");
-        TeleportDelete.Click += (sender, args) =>
+        builder.Add(CreateMenuButton(Localizer["MenuSettings.TeleportDelete"], ctx =>
         {
-            if (Duel_Positions != null && Duel_Positions.ContainsKey(Core.Engine.GlobalVars.MapName)) // Check If Map exist in JSON file
+            if (Duel_Positions != null && Duel_Positions.ContainsKey(Core.Engine.GlobalVars.MapName))
             {
-                Duel_Positions.Remove(Core.Engine.GlobalVars.MapName); // Delete Map Settings
-                File.WriteAllText(GetMapTeleportPositionConfigPath(), JsonSerializer.Serialize(Duel_Positions)); // Update File
+                Duel_Positions.Remove(Core.Engine.GlobalVars.MapName);
+                File.WriteAllText(GetMapTeleportPositionConfigPath(), JsonSerializer.Serialize(Duel_Positions));
             }
             player.SendChatAsync($"{Localizer["Chat.Prefix"]} {Localizer["Chat.DuelSettings.TeleportDelete"]}");
             return ValueTask.CompletedTask;
-        };
-        settingsMenu.AddOption(TeleportDelete);
-        Core.MenusAPI.OpenMenuForPlayer(player, settingsMenu);
+        }));
+
+        builder.Build().Open(player);
     }
 
     private void ShowDuelVoteMenu(IPlayer player)
     {
-        if (player == null || !player.IsValid || !Config.PluginEnabled || player.PlayerPawn == null) return;
+        if (player == null || !player.IsValid || !Config.PluginEnabled || player.PlayerPawn == null) return; // wait, null is typo, let's fix to player.PlayerPawn == null
 
-        // Create menu
-        var voteMenu = Core.MenusAPI.CreateBuilder().EnableExit().EnableSound().SetPlayerFrozen(Config.Duel_FreezePlayerOnMenuShown)
-        .Design.SetMenuTitle($"{Localizer["Menu.Title"]}</font>")
-        .Design.SetGlobalScrollStyle(MenuOptionScrollStyle.CenterFixed)
-        .Build();
+        if (player.PlayerPawn == null) return;
 
-        // Accept Duel
-        var acceptOption = new ButtonMenuOption($"{Localizer["Menu.Accept"]}");
-        acceptOption.Click += (sender, args) =>
+        var builder = CreateMenuWithTitle("slayer_duel.vote", Localizer["Menu.Title"]);
+
+        builder.Add(CreateMenuButton(Localizer["Menu.Accept"], ctx =>
         {
-            AcceptDuelVoteOption(args.Player);
-            Core.MenusAPI.CloseMenuForPlayer(args.Player, voteMenu);
+            AcceptDuelVoteOption(ctx.Player);
+            Core.Menu.CloseFor(ctx.Player);
             return ValueTask.CompletedTask;
-        };
-        voteMenu.AddOption(acceptOption);
+        }));
 
-        // Decline Duel
-        var declineOption = new ButtonMenuOption($"{Localizer["Menu.Decline"]}");
-        declineOption.Click += (sender, args) =>
+        builder.Add(CreateMenuButton(Localizer["Menu.Decline"], ctx =>
         {
-            DeclineDuelVoteOption(args.Player);
-            Core.MenusAPI.CloseMenuForPlayer(args.Player, voteMenu);
+            DeclineDuelVoteOption(ctx.Player);
+            Core.Menu.CloseFor(ctx.Player);
             return ValueTask.CompletedTask;
-        };
-        voteMenu.AddOption(declineOption);
+        }));
 
-        Core.MenusAPI.OpenMenuForPlayer(player, voteMenu);
+        builder.Build().Open(player);
     }
 }

@@ -334,7 +334,7 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
             StopDuelSounds();
             if(g_IsVoteStarted) 
             {
-                core.MenusAPI.CloseAllMenus();
+                core.Menu.CloseAll();
             }
 
             g_PrepDuel = false;
@@ -385,7 +385,7 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
             }
             if(g_IsVoteStarted) 
             {
-                core.MenusAPI.CloseAllMenus();
+                core.Menu.CloseAll();
             }
             return HookResult.Continue;
         });
@@ -398,7 +398,7 @@ public partial class SLAYER_Duel(ISwiftlyCore core) : BasePlugin(core)
             }
             if(g_IsVoteStarted) 
             {
-                core.MenusAPI.CloseAllMenus();
+                core.Menu.CloseAll();
             }
             return HookResult.Continue;
         });
